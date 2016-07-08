@@ -61,7 +61,7 @@ export default class Emitter {
         if (_.size(member.parameters) > 1) {
           throw new Error(`Methods can have a maximum of 1 argument`);
         } else if (_.size(member.parameters) === 1) {
-          parameters = `(${this._emitExpression(member.parameters[0])})`;
+          parameters = `(${this._emitExpression(<types.Node>_.values(member.parameters)[0])})`;
         }
         const returnType = this._emitExpression(member.returns);
         return `${this._name(memberName)}${parameters}: ${returnType}`;
@@ -91,7 +91,17 @@ export default class Emitter {
       return this._name(node.target);
     } else if (node.type === 'array') {
       return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
+    } else if (node.type === 'literal object') {
+      return _(node.members)
+        .map((member:types.Node, name) => {
+          if (member.type !== 'property') {
+            throw new Error(`Expected members of literal object to be properties; got ${member.type}`);
+          }
+          return `${this._name(name)}: ${this._emitExpression(member.signature)}`;
+        })
+        .join(', ');
     } else {
+      console.log(node);
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
   }
