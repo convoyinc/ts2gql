@@ -10,7 +10,8 @@
   "typings": "./dist/index.d.ts",
   "files": [
     "dist",
-    "*.md"
+    "*.md",
+    "bin/*"
   ],
   "scripts": {
     "clean": "./scripts/clean",
