@@ -31,10 +31,10 @@ export function load(schemaRootPath:string, queryInterfaceName:string):types.Typ
   return collector.types;
 }
 
-export function emit(schemaRootPath:string, queryInterfaceName:string):void {
+export function emit(schemaRootPath:string, queryInterfaceName:string, stream:NodeJS.WritableStream = process.stdout):void {
   const types = load(schemaRootPath, queryInterfaceName);
   const emitter = new Emitter(types);
-  emitter.emitAll();
+  emitter.emitAll(stream);
 }
 
 function isNodeExported(node:typescript.Node):boolean {

@@ -20,6 +20,9 @@
     "test": "./scripts/test",
     "test:style": "./scripts/test:style"
   },
+  "bin": {
+    "ts2gql": "./bin/ts2gql"
+  },
   "dependencies": {
     "lodash": "^4.0.0"
   },

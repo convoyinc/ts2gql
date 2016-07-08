@@ -10,11 +10,12 @@ export default class Emitter {
     this.types = <types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name));
   }
 
-  emitAll(stream:NodeJS.WritableStream = process.stdout) {
+  emitAll(stream:NodeJS.WritableStream) {
+    stream.write('\n');
     _.each(this.types, (node, name) => this.emitTopLevelNode(node, name, stream));
   }
 
-  emitTopLevelNode(node:types.Node, name:types.SymbolName, stream:NodeJS.WritableStream = process.stdout) {
+  emitTopLevelNode(node:types.Node, name:types.SymbolName, stream:NodeJS.WritableStream) {
     let content;
     if (node.type === 'alias') {
       content = this._emitAlias(node, name);
