@@ -71,7 +71,9 @@ export type Node = InterfaceNode | MethodNode | ArrayNode | ReferenceNode | Prop
  * referenced types.
  */
 export default class Collector {
-  types:{[key:string]:Node} = {};
+  types:{[key:string]:Node} = {
+    Date: {type: 'string'},
+  };
   private checker:typescript.TypeChecker;
 
   constructor(private program:typescript.Program) {
@@ -101,6 +103,8 @@ export default class Collector {
         return this._walkEnumDeclaration(<typescript.EnumDeclaration>node);
       case SyntaxKind.TypeLiteral:
         return this._walkTypeLiteralNode(<typescript.TypeLiteralNode>node);
+      case SyntaxKind.ArrayType:
+        return this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
       case SyntaxKind.StringKeyword:
         return {type: 'string'};
       case SyntaxKind.NumberKeyword:
@@ -109,13 +113,20 @@ export default class Collector {
         return {type: 'boolean'};
       case SyntaxKind.ModuleDeclaration:
         return null;
+      case SyntaxKind.VariableDeclaration:
+        return null;
       default:
         console.log(node);
+        console.log(node.getSourceFile().fileName);
         throw new Error(`Don't know how to handle ${SyntaxKind[node.kind]} nodes`);
     }
   }
 
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):Node {
+    // TODO: How can we determine for sure that this is the global date?
+    if (node.name.text === 'Date') {
+      return {type: 'reference', target: 'Date'};
+    }
     return this._addType(node, () => ({
       type: 'interface',
       members: _.keyBy(node.members.map(this._walkNode), 'name'),
@@ -178,6 +189,13 @@ export default class Collector {
     }
   }
 
+  _walkArrayTypeNode(node:typescript.ArrayTypeNode):Node {
+    return {
+      type: 'array',
+      elements: [this._walkNode(node.elementType)],
+    };
+  }
+
   // Type Walking
 
   _walkType = (type:typescript.Type):Node => {
@@ -187,7 +205,15 @@ export default class Collector {
       return this._walkInterfaceType(<typescript.InterfaceType>type);
     } else if (type.flags & TypeFlags.Anonymous) {
       return this._walkNode(type.getSymbol().declarations[0]);
+    } else if (type.flags & TypeFlags.String) {
+      return {type: 'string'};
+    } else if (type.flags & TypeFlags.Number) {
+      return {type: 'number'};
+    } else if (type.flags & TypeFlags.Boolean) {
+      return {type: 'boolean'};
     } else {
+      console.log(type);
+      console.log(type.getSymbol().declarations[0].getSourceFile().fileName);
       throw new Error(`Don't know how to handle type with flags: ${type.flags}`);
     }
   }
