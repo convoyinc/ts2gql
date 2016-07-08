@@ -1,44 +1,72 @@
 # ts2gql
 
-Binds all methods on an object to itself, _including_ those defined on its prototype, and inherited up the chain.  Also ensures that any methods' properties are preserved.
+Converts a TypeScript type hierarchy into GraphQL's IDL.
 
-```js
-import autobind from 'ts2gql';
+`input.ts`
+```ts
+/** @graphql ID */
+export type Id = string;
 
-class Foo {
-  constructor() {
-    autobind(this);
-  }
+export type Url = string;
 
-  foo() {
-    return 'stuff';
-  }
-
-  bar() {
-    return this.foo();
-  }
+export interface User {
+  id: Id;
+  name: string;
+  photo: Url;
 }
 
-const bar = new Foo().bar;
-bar(); // 'stuff'
+export interface Post {
+  id: Id;
+  postedAt: Date;
+  title: string;
+  body: string;
+  author: User;
+}
+
+export interface Category {
+  id: Id;
+  name: string;
+  posts: Post[];
+}
+
+export interface RootQuery {
+  users(args: {id: Id}): User[]
+  posts(args: {id: Id, authorId: Id, categoryId: Id}): Post[]
+  categories(args: {id: Id}): Category[]
+}
 ```
 
-You can also use it as a decorator:
+```
+> ts2gql input.ts RootQuery
 
-```js
-import autobind from 'ts2gql';
+scalar Date
 
-@autobind
-class Foo {
-  foo() {
-    return 'stuff';
-  }
+scalar Url
 
-  bar() {
-    return this.foo();
-  }
+type User {
+  id: ID
+  name: String
+  photo: Url
 }
 
-const bar = new Foo().bar;
-bar(); // 'stuff'
+type Post {
+  id: ID
+  postedAt: Date
+  title: String
+  body: String
+  author: User
+}
+
+type Category {
+  id: ID
+  name: String
+  posts: [Post]
+}
+
+type RootQuery {
+  users(id: ID): [User]
+  posts(id: ID, authorId: ID, categoryId: ID): [Post]
+  categories(id: ID): [Category]
+}
+
 ```
