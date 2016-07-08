@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+FILES=("${@}")
+if [[ "${#FILES[@]}" = "0" ]]; then
+  FILES+=($(find src -name "*.ts"))
+fi
+
+./node_modules/.bin/tslint "${FILES[@]}"

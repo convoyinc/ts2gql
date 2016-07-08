@@ -1,0 +1,21 @@
+machine:
+  node:
+    version: 6.2.2
+
+test:
+  override:
+    - npm run compile
+
+    - npm run test:style:
+        parallel: true
+        files:
+          - src/**/*.ts
+
+deployment:
+  deploy:
+    branch: master
+    commands:
+      - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - git config --global user.email "donvoy@convoy.com"
+      - git config --global user.name "Don Voy"
+      - npm run release

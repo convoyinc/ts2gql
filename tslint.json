@@ -1,0 +1,80 @@
+{
+  "rules": {
+    "class-name": true,
+    "comment-format": [true,
+      "check-space"
+    ],
+    "eofline": true,
+    "indent": [true,
+      "spaces"
+    ],
+    "label-position": true,
+    "label-undefined": true,
+    "max-line-length": 120,
+    "no-arg": true,
+    "no-conditional-assignment": true,
+    "no-consecutive-blank-lines": true,
+    "no-construct": true,
+    "no-debugger": true,
+    "no-duplicate-key": true,
+    "no-duplicate-variable": true,
+    "no-empty": true,
+    "no-eval": true,
+    "no-shadowed-variable": true,
+    "no-switch-case-fall-through": true,
+    "no-trailing-whitespace": true,
+    "no-unreachable": true,
+    "no-unused-expression": true,
+    "no-unused-variable": [true,
+      {"ignore-pattern": "^_"}
+    ],
+    "no-var-keyword": true,
+    "one-line": [true,
+      "check-catch",
+      "check-else",
+      "check-finally",
+      "check-open-brace",
+      "check-whitespace"
+    ],
+    "quotemark": [true,
+      "single",
+      "avoid-escape"
+    ],
+    "semicolon": [true,
+      "always"
+    ],
+    "switch-default": true,
+    "trailing-comma": [true, {
+      "multiline": "always",
+      "singleline": "never"
+    }],
+    "triple-equals": [true,
+      "allow-null-check"
+    ],
+    "typedef-whitespace": [true, {
+      "call-signature": "nospace",
+      "index-signature": "nospace",
+      "parameter": "nospace",
+      "property-declaration": "nospace",
+      "variable-declaration": "nospace"
+    }, {
+      "call-signature": "nospace",
+      "index-signature": "nospace",
+      "parameter": "nospace",
+      "property-declaration": "nospace",
+      "variable-declaration": "nospace"
+    }],
+    "variable-name": [true,
+      "check-format",
+      "allow-leading-underscore",
+      "ban-keywords",
+      "allow-pascal-case"
+    ],
+    "whitespace": [true,
+      "check-branch",
+      "check-decl",
+      "check-operator",
+      "check-separator"
+    ]
+  }
+}

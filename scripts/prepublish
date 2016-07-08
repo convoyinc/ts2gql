@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+
+./node_modules/.bin/typings install
+
+NPM_COMMAND=$(node -e "console.log(JSON.parse(process.env.npm_config_argv).original[0])")
+# Skip builds if we're being run via a basic npm install.
+if [[ "${NPM_COMMAND}" == "install" ]]; then
+  exit 0
+fi
+
+./scripts/compile

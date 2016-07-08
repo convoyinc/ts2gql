@@ -1,0 +1,9 @@
+{
+  "name": "ts2gql",
+  "dependencies": {
+    "lodash": "registry:npm/lodash#4.0.0+20160701205107"
+  },
+  "globalDependencies": {
+    "node": "registry:env/node#6.0.0+20160622202520"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "charset": "utf-8",
+    "declaration": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": [
+      "es2015"
+    ],
+    "module": "commonjs",
+    "newLine": "LF",
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "outDir": "./dist/",
+    "pretty": true,
+    "target": "es5"
+  }
+}

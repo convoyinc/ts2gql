@@ -1,0 +1,31 @@
+{
+  "name": "ts2gql",
+  "version": "1.0.0",
+  "description": "react-addons-update except that it will fill in object paths that are missing.",
+  "homepage": "https://github.com/convoyinc/ts2gql",
+  "bugs": "https://github.com/convoyinc/ts2gql/issues",
+  "license": "Apache-2.0",
+  "repository": "convoyinc/ts2gql",
+  "main": "./dist/src/index.js",
+  "typings": "./dist/src/index.d.ts",
+  "files": [
+    "dist",
+    "*.md"
+  ],
+  "scripts": {
+    "clean": "./scripts/clean",
+    "compile": "./scripts/compile",
+    "prepublish": "./scripts/prepublish",
+    "release": "./scripts/release",
+    "test": "./scripts/test",
+    "test:style": "./scripts/test:style"
+  },
+  "dependencies": {
+    "lodash": "^4.0.0"
+  },
+  "devDependencies": {
+    "tslint": "^3.13.0",
+    "typescript": "^2.0.0-dev.20160707",
+    "typings": "^1.3.1"
+  }
+}
