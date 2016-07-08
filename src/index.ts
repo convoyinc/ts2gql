@@ -2,9 +2,11 @@ import * as _ from 'lodash';
 import * as typescript from 'typescript';
 import * as path from 'path';
 
+import * as types from './types';
 import Collector from './Collector';
+import Emitter from './Emitter';
 
-export function load(schemaRootPath:string, queryInterfaceName:string) {
+export function load(schemaRootPath:string, queryInterfaceName:string):types.TypeMap {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
@@ -26,8 +28,13 @@ export function load(schemaRootPath:string, queryInterfaceName:string) {
   const collector = new Collector(program);
   collector.addQueryNode(queryInterface);
 
-  console.log('------------');
-  console.log('collector types:', JSON.stringify(collector.types, null, 2));
+  return collector.types;
+}
+
+export function emit(schemaRootPath:string, queryInterfaceName:string):void {
+  const types = load(schemaRootPath, queryInterfaceName);
+  const emitter = new Emitter(types);
+  emitter.emitAll();
 }
 
 function isNodeExported(node:typescript.Node):boolean {

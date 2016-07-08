@@ -1,78 +1,18 @@
 import * as _ from 'lodash';
 import * as typescript from 'typescript';
 
+import * as types from './types';
+
 const SyntaxKind = typescript.SyntaxKind;
 const TypeFlags = typescript.TypeFlags;
-
-export type SymbolName = string;
-
-export interface InterfaceNode {
-  type:'interface';
-  // documentation:string;
-  members:{[key:string]:Node}
-  query?:boolean;
-}
-
-export interface MethodNode {
-  type:'method';
-  name:string;
-  documentation:string;
-  parameters:{[key:string]:Node};
-  returns:Node;
-}
-
-export interface ArrayNode {
-  type:'array';
-  elements:Node[];
-}
-
-export interface ReferenceNode {
-  type:'reference';
-  target:SymbolName;
-}
-
-export interface PropertyNode {
-  type:'property';
-  name:string;
-  signature:Node;
-}
-
-export interface AliasNode {
-  type:'alias';
-  target:Node;
-}
-
-export interface EnumNode {
-  type:'enum';
-  values:string[];
-}
-
-export interface LiteralObjectNode {
-  type:'literal object';
-  members:{[key:string]:Node};
-}
-
-export interface StringNode {
-  type:'string';
-}
-
-export interface NumberNode {
-  type:'number';
-}
-
-export interface BooleanNode {
-  type:'boolean';
-}
-
-export type Node = InterfaceNode | MethodNode | ArrayNode | ReferenceNode | PropertyNode | AliasNode | EnumNode | LiteralObjectNode | StringNode | NumberNode | BooleanNode;
 
 /**
  * Walks declarations from a TypeScript programs, and builds up a map of
  * referenced types.
  */
 export default class Collector {
-  types:{[key:string]:Node} = {
-    Date: {type: 'string'},
+  types:types.TypeMap = {
+    Date: {type: 'alias', target: {type: 'string'}},
   };
   private checker:typescript.TypeChecker;
 
@@ -81,13 +21,13 @@ export default class Collector {
   }
 
   addQueryNode(node:typescript.Declaration):void {
-    const simpleNode = <InterfaceNode>this._walkNode(node);
+    const simpleNode = <types.InterfaceNode>this._walkNode(node);
     simpleNode.query = true;
   }
 
   // Node Walking
 
-  _walkNode = (node:typescript.Node):Node => {
+  _walkNode = (node:typescript.Node):types.Node => {
     switch (node.kind) {
       case SyntaxKind.InterfaceDeclaration:
         return this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
@@ -122,7 +62,7 @@ export default class Collector {
     }
   }
 
-  _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):Node {
+  _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
     // TODO: How can we determine for sure that this is the global date?
     if (node.name.text === 'Date') {
       return {type: 'reference', target: 'Date'};
@@ -133,9 +73,9 @@ export default class Collector {
     }));
   }
 
-  _walkMethodSignature(node:typescript.MethodSignature):Node {
+  _walkMethodSignature(node:typescript.MethodSignature):types.Node {
     const signature = this.checker.getSignatureFromDeclaration(node);
-    const parameters:{[key:string]:Node} = {};
+    const parameters:types.TypeMap = {};
     for (const parameter of signature.getParameters()) {
       const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
       parameters[parameter.getName()] = this._walkNode(parameterNode.type);
@@ -150,7 +90,7 @@ export default class Collector {
     };
   }
 
-  _walkPropertySignature(node:typescript.PropertySignature):Node {
+  _walkPropertySignature(node:typescript.PropertySignature):types.Node {
     return {
       type: 'property',
       name: node.name.getText(),
@@ -158,7 +98,7 @@ export default class Collector {
     };
   }
 
-  _walkTypeReferenceNode(node:typescript.TypeReferenceNode):Node {
+  _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
     const symbol = this._symbolForNode(node.typeName);
     symbol.getDeclarations().forEach(this._walkNode);
 
@@ -168,28 +108,28 @@ export default class Collector {
     }
   }
 
-  _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):Node {
+  _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
     return this._addType(node, () => ({
       type: 'alias',
       target: this._walkNode(node.type),
     }));
   }
 
-  _walkEnumDeclaration(node:typescript.EnumDeclaration):Node {
+  _walkEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
     return this._addType(node, () => ({
       type: 'enum',
       values: node.members.map(m => m.name.getText()),
     }));
   }
 
-  _walkTypeLiteralNode(node:typescript.TypeLiteralNode):Node {
+  _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
     return {
       type: 'literal object',
       members: _.keyBy(node.members.map(this._walkNode), 'name'),
     }
   }
 
-  _walkArrayTypeNode(node:typescript.ArrayTypeNode):Node {
+  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.Node {
     return {
       type: 'array',
       elements: [this._walkNode(node.elementType)],
@@ -198,7 +138,7 @@ export default class Collector {
 
   // Type Walking
 
-  _walkType = (type:typescript.Type):Node => {
+  _walkType = (type:typescript.Type):types.Node => {
     if (type.flags & TypeFlags.Reference) {
       return this._walkTypeReference(<typescript.TypeReference>type);
     } else if (type.flags & TypeFlags.Interface) {
@@ -218,7 +158,7 @@ export default class Collector {
     }
   }
 
-  _walkTypeReference(type:typescript.TypeReference):Node {
+  _walkTypeReference(type:typescript.TypeReference):types.Node {
     if (type.target && type.target.getSymbol().name === 'Array') {
       return {
         type: 'array',
@@ -229,7 +169,7 @@ export default class Collector {
     }
   }
 
-  _walkInterfaceType(type:typescript.InterfaceType):Node {
+  _walkInterfaceType(type:typescript.InterfaceType):types.Node {
     const symbol = this._expandSymbol(type.getSymbol());
     symbol.getDeclarations().forEach(this._walkNode);
 
@@ -241,7 +181,7 @@ export default class Collector {
 
   // Utility
 
-  _addType(node:typescript.Declaration, typeBuilder:() => Node):Node {
+  _addType(node:typescript.Declaration, typeBuilder:() => types.Node):types.Node {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
@@ -253,7 +193,7 @@ export default class Collector {
     return this._expandSymbol(this.checker.getSymbolAtLocation(node));
   }
 
-  _nameForSymbol(symbol:typescript.Symbol):SymbolName {
+  _nameForSymbol(symbol:typescript.Symbol):types.SymbolName {
     symbol = this._expandSymbol(symbol);
     let parts = [];
     while (symbol) {
