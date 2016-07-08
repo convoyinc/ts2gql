@@ -57,12 +57,14 @@ export default class Emitter {
   _emitInterface(node:types.InterfaceNode, name:types.SymbolName):string {
     const properties = _.map(node.members, (member, memberName) => {
       if (member.type === 'method') {
+        let parameters = '';
         if (_.size(member.parameters) > 1) {
           throw new Error(`Methods can have a maximum of 1 argument`);
+        } else if (_.size(member.parameters) === 1) {
+          parameters = `(${this._emitExpression(member.parameters[0])})`;
         }
-        const parameters = this._emitExpression(member.parameters[0]);
         const returnType = this._emitExpression(member.returns);
-        return `${this._name(memberName)}(${parameters}): ${returnType}`;
+        return `${this._name(memberName)}${parameters}: ${returnType}`;
       } else if (member.type === 'property') {
         return `${this._name(memberName)}: ${this._emitExpression(member.signature)}`;
       } else {
@@ -97,6 +99,7 @@ export default class Emitter {
   // Utility
 
   _name(name:types.SymbolName):string {
+    name = this.renames[name] || name;
     return name.replace(/\W/g, '_');
   }
 
