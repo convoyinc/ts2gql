@@ -84,7 +84,6 @@ export default class Collector {
     return {
       type: 'method',
       name: node.name.getText(),
-      documentation: signature.getDocumentationComment().map(c => c.text).join('').trim(),
       parameters,
       returns: this._walkType(signature.getReturnType()),
     };
@@ -185,8 +184,22 @@ export default class Collector {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
+    (<any>type).documentation = this._documentationForNode(node);
     this.types[name] = type;
     return type;
+  }
+
+  _documentationForNode(node:typescript.Node):string {
+    const source = node.getSourceFile().text;
+    const commentRanges = typescript.getLeadingCommentRanges(source, node.getFullStart());
+    if (!commentRanges) return null;
+
+    return _(commentRanges)
+      .map(({pos, end}) => source.substr(pos, end - pos))
+      .map(c => c.replace(/^\/\*\*/, ''))
+      .map(c => c.replace(/\*\//, ''))
+      .join('')
+      .trim();
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {

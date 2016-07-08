@@ -5,40 +5,46 @@ export interface InterfaceNode {
   // documentation:string;
   members:{[key:string]:Node}
   query?:boolean;
+  documentation?:string;
 }
 
 export interface MethodNode {
   type:'method';
   name:string;
-  documentation:string;
   parameters:{[key:string]:Node};
   returns:Node;
+  documentation?:string;
 }
 
 export interface ArrayNode {
   type:'array';
   elements:Node[];
+  documentation?:string;
 }
 
 export interface ReferenceNode {
   type:'reference';
   target:SymbolName;
+  documentation?:string;
 }
 
 export interface PropertyNode {
   type:'property';
   name:string;
   signature:Node;
+  documentation?:string;
 }
 
 export interface AliasNode {
   type:'alias';
   target:Node;
+  documentation?:string;
 }
 
 export interface EnumNode {
   type:'enum';
   values:string[];
+  documentation?:string;
 }
 
 export interface LiteralObjectNode {

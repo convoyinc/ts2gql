@@ -37,6 +37,9 @@ export default class Emitter {
         this.renames[name] = node.target.target;
         return true;
       }
+    } else if (node.type === 'alias' && /@graphql ID/.test(node.documentation)) {
+      this.renames[name] = 'ID';
+      return true;
     }
 
     return false;
