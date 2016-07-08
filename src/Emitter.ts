@@ -4,8 +4,11 @@ import * as types from './types';
 
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
 export default class Emitter {
+  renames:{[key:string]:string} = {};
 
-  constructor(private types:types.TypeMap) {}
+  constructor(private types:types.TypeMap) {
+    this.types = <types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name));
+  }
 
   emitAll(stream:NodeJS.WritableStream = process.stdout) {
     _.each(this.types, (node, name) => this.emitTopLevelNode(node, name, stream));
@@ -23,6 +26,20 @@ export default class Emitter {
       throw new Error(`Don't know how to emit ${node.type} as a top level node`);
     }
     stream.write(`${content}\n\n`);
+  }
+
+  // Preprocessing
+
+  _preprocessNode(node:types.Node, name:types.SymbolName):boolean {
+    if (node.type === 'alias' && node.target.type === 'reference') {
+      const referencedNode = this.types[node.target.target];
+      if (this._isPrimitive(referencedNode) || referencedNode.type === 'enum') {
+        this.renames[name] = node.target.target;
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // Nodes
