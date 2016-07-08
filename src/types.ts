@@ -3,7 +3,7 @@ export type SymbolName = string;
 export interface InterfaceNode {
   type:'interface';
   // documentation:string;
-  members:{[key:string]:Node}
+  members:{[key:string]:Node};
   query?:boolean;
   documentation?:string;
 }

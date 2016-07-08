@@ -104,7 +104,7 @@ export default class Collector {
     return {
       type: 'reference',
       target: this._nameForSymbol(symbol),
-    }
+    };
   }
 
   _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
@@ -125,7 +125,7 @@ export default class Collector {
     return {
       type: 'literal object',
       members: _.keyBy(node.members.map(this._walkNode), 'name'),
-    }
+    };
   }
 
   _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.Node {
