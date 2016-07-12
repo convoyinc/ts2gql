@@ -170,19 +170,9 @@ export default class Collector {
   }
 
   _walkUnionTypeNode(node:typescript.UnionTypeNode):types.Node {
-    const types = [];
-    for (const typeNode of node.types) {
-      if (typeNode.kind !== SyntaxKind.TypeReference) {
-        throw new Error(`Don't know how to handle ${SyntaxKind[typeNode.kind]} in a union`);
-      }
-      const symbol = this._symbolForNode((<typescript.TypeReferenceNode>typeNode).typeName);
-      this._walkSymbol(symbol);
-      types.push(this._nameForSymbol(symbol));
-    }
-
     return {
       type: 'union',
-      types,
+      types: node.types.map(this._walkNode),
     };
   }
 

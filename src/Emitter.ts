@@ -54,7 +54,12 @@ export default class Emitter {
     } else if (node.target.type === 'reference') {
       return `union ${this._name(name)} = ${this._name(node.target.target)}`;
     } else if (node.target.type === 'union') {
-      const types = node.target.types.map(this._name);
+      const types = node.target.types.map(type => {
+        if (type.type !== 'reference') {
+          throw new Error(`GraphQL unions require that all types are references.  Got a ${type.type}`);
+        }
+        return this._name(type.target);
+      });
       return `union ${this._name(name)} = ${types.join(' | ')}`;
     } else {
       throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
@@ -78,6 +83,7 @@ export default class Emitter {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
     });
+
     return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
   }
 

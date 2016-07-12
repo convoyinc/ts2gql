@@ -6,8 +6,8 @@ export interface ComplexNode {
 
 export interface InterfaceNode extends ComplexNode {
   type:'interface';
-  // documentation:string;
   members:Node[];
+  inherits:SymbolName[];
   query?:boolean;
 }
 
@@ -46,7 +46,7 @@ export interface EnumNode extends ComplexNode {
 
 export interface UnionNode extends ComplexNode {
   type:'union';
-  types:SymbolName[];
+  types:Node[];
 }
 
 export interface LiteralObjectNode {
