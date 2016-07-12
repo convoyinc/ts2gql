@@ -1,7 +1,9 @@
+import * as doctrine from 'doctrine';
+
 export type SymbolName = string;
 
 export interface ComplexNode {
-  documentation?:string;
+  documentation?:doctrine.ParseResult;
 }
 
 export interface InterfaceNode extends ComplexNode {

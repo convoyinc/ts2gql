@@ -38,7 +38,7 @@ export default class Emitter {
         this.renames[name] = node.target.target;
         return true;
       }
-    } else if (node.type === 'alias' && /@graphql ID/.test(node.documentation)) {
+    } else if (node.type === 'alias' && this._hasDocTag(node, 'ID')) {
       this.renames[name] = 'ID';
       return true;
     }
@@ -164,6 +164,18 @@ export default class Emitter {
       interfaces = interfaces.concat(this._transitiveInterfaces(inherited));
     }
     return _.uniq(interfaces);
+  }
+
+  _hasDocTag(node:types.ComplexNode, prefix:string):boolean {
+    return !!this._getDocTag(node, prefix);
+  }
+
+  _getDocTag(node:types.ComplexNode, prefix:string):string {
+    if (!node.documentation) return null;
+    for (const tag of node.documentation.tags) {
+      if (tag.title.startsWith(prefix)) return tag.title;
+    }
+    return null;
   }
 
 }

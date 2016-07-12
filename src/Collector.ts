@@ -1,5 +1,6 @@
 import * as _ from 'lodash';
 import * as typescript from 'typescript';
+import * as doctrine from 'doctrine';
 
 import * as types from './types';
 
@@ -220,17 +221,19 @@ export default class Collector {
     return type;
   }
 
-  _documentationForNode(node:typescript.Node):string {
+  _documentationForNode(node:typescript.Node):doctrine.ParseResult {
     const source = node.getSourceFile().text;
     const commentRanges = typescript.getLeadingCommentRanges(source, node.getFullStart());
     if (!commentRanges) return null;
 
-    return _(commentRanges)
+    const mergedComment = _(commentRanges)
       .map(({pos, end}) => source.substr(pos, end - pos))
       .map(c => c.replace(/^\/\*\*/, ''))
       .map(c => c.replace(/\*\//, ''))
       .join('')
       .trim();
+
+    return doctrine.parse(mergedComment);
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {

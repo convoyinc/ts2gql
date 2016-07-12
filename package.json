@@ -28,6 +28,7 @@
     "lodash": "^4.0.0"
   },
   "devDependencies": {
+    "doctrine": "^1.2.2",
     "tslint": "^3.13.0",
     "typescript": "^2.0.0",
     "typings": "^1.3.1"
