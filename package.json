@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "tslint": "^3.13.0",
-    "typescript": "^2.0.0-dev.20160707",
+    "typescript": "^2.0.0",
     "typings": "^1.3.1"
   }
 }
