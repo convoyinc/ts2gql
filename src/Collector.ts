@@ -134,17 +134,7 @@ export default class Collector {
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
-    const symbol = this._symbolForNode(node.typeName);
-    this._walkSymbol(symbol);
-    const referenced = this.types[this._nameForSymbol(symbol)];
-    if (referenced && referenced.type === 'interface') {
-      referenced.concrete = true;
-    }
-
-    return {
-      type: 'reference',
-      target: this._nameForSymbol(symbol),
-    };
+    return this._referenceForSymbol(this._symbolForNode(node.typeName));
   }
 
   _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
@@ -216,13 +206,7 @@ export default class Collector {
   }
 
   _walkInterfaceType(type:typescript.InterfaceType):types.Node {
-    const symbol = this._expandSymbol(type.getSymbol());
-    this._walkSymbol(symbol);
-
-    return {
-      type: 'reference',
-      target: this._nameForSymbol(symbol),
-    };
+    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()));
   }
 
   // Utility
@@ -271,6 +255,19 @@ export default class Collector {
       symbol = this.checker.getAliasedSymbol(symbol);
     }
     return symbol;
+  }
+
+  _referenceForSymbol(symbol:typescript.Symbol):types.ReferenceNode {
+    this._walkSymbol(symbol);
+    const referenced = this.types[this._nameForSymbol(symbol)];
+    if (referenced && referenced.type === 'interface') {
+      referenced.concrete = true;
+    }
+
+    return {
+      type: 'reference',
+      target: this._nameForSymbol(symbol),
+    };
   }
 
 }
