@@ -62,7 +62,7 @@ export default class Emitter {
   }
 
   _emitInterface(node:types.InterfaceNode, name:types.SymbolName):string {
-    const properties = _.map(node.members, (member, memberName) => {
+    const properties = _.map(node.members, (member) => {
       if (member.type === 'method') {
         let parameters = '';
         if (_.size(member.parameters) > 1) {
@@ -71,9 +71,9 @@ export default class Emitter {
           parameters = `(${this._emitExpression(<types.Node>_.values(member.parameters)[0])})`;
         }
         const returnType = this._emitExpression(member.returns);
-        return `${this._name(memberName)}${parameters}: ${returnType}`;
+        return `${this._name(member.name)}${parameters}: ${returnType}`;
       } else if (member.type === 'property') {
-        return `${this._name(memberName)}: ${this._emitExpression(member.signature)}`;
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -100,11 +100,11 @@ export default class Emitter {
       return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
     } else if (node.type === 'literal object') {
       return _(node.members)
-        .map((member:types.Node, name) => {
+        .map((member:types.Node) => {
           if (member.type !== 'property') {
             throw new Error(`Expected members of literal object to be properties; got ${member.type}`);
           }
-          return `${this._name(name)}: ${this._emitExpression(member.signature)}`;
+          return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
         })
         .join(', ');
     } else {

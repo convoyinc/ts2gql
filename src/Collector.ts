@@ -88,7 +88,7 @@ export default class Collector {
 
       return {
         type: 'interface',
-        members: _.keyBy(node.members.map(this._walkNode), 'name'),
+        members: node.members.map(this._walkNode),
         inherits,
       };
     });
@@ -145,7 +145,7 @@ export default class Collector {
   _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
     return {
       type: 'literal object',
-      members: _.keyBy(node.members.map(this._walkNode), 'name'),
+      members: node.members.map(this._walkNode),
     };
   }
 

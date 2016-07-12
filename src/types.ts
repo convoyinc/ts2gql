@@ -7,7 +7,7 @@ export interface ComplexNode {
 export interface InterfaceNode extends ComplexNode {
   type:'interface';
   // documentation:string;
-  members:{[key:string]:Node};
+  members:Node[];
   query?:boolean;
 }
 
@@ -51,7 +51,7 @@ export interface UnionNode extends ComplexNode {
 
 export interface LiteralObjectNode {
   type:'literal object';
-  members:{[key:string]:Node};
+  members:Node[];
 }
 
 export interface StringNode {
