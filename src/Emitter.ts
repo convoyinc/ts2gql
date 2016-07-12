@@ -104,9 +104,15 @@ export default class Emitter {
 
     if (node.concrete) {
       return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
-    } else {
-      return `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
     }
+
+    let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
+    const fragmentDeclaration = this._getDocTag(node, 'fragment');
+    if (fragmentDeclaration) {
+      result = `${result}\n\n${fragmentDeclaration} {\n${this._indent(properties)}\n}`;
+    }
+
+    return result;
   }
 
   _emitEnum(node:types.EnumNode, name:types.SymbolName):string {
@@ -173,7 +179,8 @@ export default class Emitter {
   _getDocTag(node:types.ComplexNode, prefix:string):string {
     if (!node.documentation) return null;
     for (const tag of node.documentation.tags) {
-      if (tag.title.startsWith(prefix)) return tag.title;
+      if (tag.title !== 'graphql') continue;
+      if (tag.description.startsWith(prefix)) return tag.description;
     }
     return null;
   }
