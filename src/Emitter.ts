@@ -53,8 +53,11 @@ export default class Emitter {
       return `scalar ${this._name(name)}`;
     } else if (node.target.type === 'reference') {
       return `union ${this._name(name)} = ${this._name(node.target.target)}`;
+    } else if (node.target.type === 'union') {
+      const types = node.target.types.map(this._name);
+      return `union ${this._name(name)} = ${types.join(' | ')}`;
     } else {
-      throw new Error(`Can't serialize ${node.target} as an alias`);
+      throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
     }
   }
 
@@ -112,7 +115,7 @@ export default class Emitter {
 
   // Utility
 
-  _name(name:types.SymbolName):string {
+  _name = (name:types.SymbolName):string => {
     name = this.renames[name] || name;
     return name.replace(/\W/g, '_');
   }

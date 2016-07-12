@@ -45,6 +45,8 @@ export default class Collector {
         return this._walkTypeLiteralNode(<typescript.TypeLiteralNode>node);
       case SyntaxKind.ArrayType:
         return this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
+      case SyntaxKind.UnionType:
+        return this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
       case SyntaxKind.StringKeyword:
         return {type: 'string'};
       case SyntaxKind.NumberKeyword:
@@ -60,6 +62,10 @@ export default class Collector {
         console.log(node.getSourceFile().fileName);
         throw new Error(`Don't know how to handle ${SyntaxKind[node.kind]} nodes`);
     }
+  }
+
+  _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
+    return symbol.getDeclarations().map(d => this._walkNode(d));
   }
 
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
@@ -99,7 +105,7 @@ export default class Collector {
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
     const symbol = this._symbolForNode(node.typeName);
-    symbol.getDeclarations().forEach(this._walkNode);
+    this._walkSymbol(symbol);
 
     return {
       type: 'reference',
@@ -132,6 +138,23 @@ export default class Collector {
     return {
       type: 'array',
       elements: [this._walkNode(node.elementType)],
+    };
+  }
+
+  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.Node {
+    const types = [];
+    for (const typeNode of node.types) {
+      if (typeNode.kind !== SyntaxKind.TypeReference) {
+        throw new Error(`Don't know how to handle ${SyntaxKind[typeNode.kind]} in a union`);
+      }
+      const symbol = this._symbolForNode((<typescript.TypeReferenceNode>typeNode).typeName);
+      this._walkSymbol(symbol);
+      types.push(this._nameForSymbol(symbol));
+    }
+
+    return {
+      type: 'union',
+      types,
     };
   }
 
@@ -170,7 +193,7 @@ export default class Collector {
 
   _walkInterfaceType(type:typescript.InterfaceType):types.Node {
     const symbol = this._expandSymbol(type.getSymbol());
-    symbol.getDeclarations().forEach(this._walkNode);
+    this._walkSymbol(symbol);
 
     return {
       type: 'reference',
@@ -184,7 +207,7 @@ export default class Collector {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
-    (<any>type).documentation = this._documentationForNode(node);
+    (<types.ComplexNode>type).documentation = this._documentationForNode(node);
     this.types[name] = type;
     return type;
   }

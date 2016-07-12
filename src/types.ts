@@ -1,50 +1,52 @@
 export type SymbolName = string;
 
-export interface InterfaceNode {
+export interface ComplexNode {
+  documentation?:string;
+}
+
+export interface InterfaceNode extends ComplexNode {
   type:'interface';
   // documentation:string;
   members:{[key:string]:Node};
   query?:boolean;
-  documentation?:string;
 }
 
-export interface MethodNode {
+export interface MethodNode extends ComplexNode {
   type:'method';
   name:string;
   parameters:{[key:string]:Node};
   returns:Node;
-  documentation?:string;
 }
 
-export interface ArrayNode {
+export interface ArrayNode extends ComplexNode {
   type:'array';
   elements:Node[];
-  documentation?:string;
 }
 
-export interface ReferenceNode {
+export interface ReferenceNode extends ComplexNode {
   type:'reference';
   target:SymbolName;
-  documentation?:string;
 }
 
-export interface PropertyNode {
+export interface PropertyNode extends ComplexNode {
   type:'property';
   name:string;
   signature:Node;
-  documentation?:string;
 }
 
-export interface AliasNode {
+export interface AliasNode extends ComplexNode {
   type:'alias';
   target:Node;
-  documentation?:string;
 }
 
-export interface EnumNode {
+export interface EnumNode extends ComplexNode {
   type:'enum';
   values:string[];
-  documentation?:string;
+}
+
+export interface UnionNode extends ComplexNode {
+  type:'union';
+  types:SymbolName[];
 }
 
 export interface LiteralObjectNode {
@@ -64,6 +66,17 @@ export interface BooleanNode {
   type:'boolean';
 }
 
-export type Node = InterfaceNode | MethodNode | ArrayNode | ReferenceNode | PropertyNode | AliasNode | EnumNode | LiteralObjectNode | StringNode | NumberNode | BooleanNode;
+export type Node = InterfaceNode
+  | MethodNode
+  | ArrayNode
+  | ReferenceNode
+  | PropertyNode
+  | AliasNode
+  | EnumNode
+  | UnionNode
+  | LiteralObjectNode
+  | StringNode
+  | NumberNode
+  | BooleanNode;
 
 export type TypeMap = {[key:string]:Node};
