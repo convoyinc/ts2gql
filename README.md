@@ -15,11 +15,15 @@ export interface User {
   photo: Url;
 }
 
-export interface Post {
-  id: Id;
-  postedAt: Date;
+/** @graphql fragment content on Post */
+export interface PostContent {
   title: string;
   body: string;
+}
+
+export interface Post extends PostContent {
+  id: Id;
+  postedAt: Date;
   author: User;
 }
 
@@ -49,12 +53,22 @@ type User {
   photo: Url
 }
 
+interface PostContent {
+  body: String
+  title: String
+}
+
+fragment content on Post {
+  body
+  title
+}
+
 type Post {
+  author: User
+  body: String
   id: ID
   postedAt: Date
   title: String
-  body: String
-  author: User
 }
 
 type Category {
@@ -64,9 +78,9 @@ type Category {
 }
 
 type RootQuery {
-  users(id: ID): [User]
-  posts(id: ID, authorId: ID, categoryId: ID): [Post]
   categories(id: ID): [Category]
+  posts(id: ID, authorId: ID, categoryId: ID): [Post]
+  users(id: ID): [User]
 }
 
 ```
