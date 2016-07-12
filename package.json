@@ -1,6 +1,6 @@
 {
   "name": "ts2gql",
-  "version": "1.0.0",
+  "version": "1.0.5",
   "description": "react-addons-update except that it will fill in object paths that are missing.",
   "homepage": "https://github.com/convoyinc/ts2gql",
   "bugs": "https://github.com/convoyinc/ts2gql/issues",
