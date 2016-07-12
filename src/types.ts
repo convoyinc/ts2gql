@@ -66,17 +66,18 @@ export interface BooleanNode {
   type:'boolean';
 }
 
-export type Node = InterfaceNode
-  | MethodNode
-  | ArrayNode
-  | ReferenceNode
-  | PropertyNode
-  | AliasNode
-  | EnumNode
-  | UnionNode
-  | LiteralObjectNode
-  | StringNode
-  | NumberNode
-  | BooleanNode;
+export type Node =
+  InterfaceNode |
+  MethodNode |
+  ArrayNode |
+  ReferenceNode |
+  PropertyNode |
+  AliasNode |
+  EnumNode |
+  UnionNode |
+  LiteralObjectNode |
+  StringNode |
+  NumberNode |
+  BooleanNode;
 
 export type TypeMap = {[key:string]:Node};
