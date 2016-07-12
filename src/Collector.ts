@@ -228,12 +228,10 @@ export default class Collector {
 
     const mergedComment = _(commentRanges)
       .map(({pos, end}) => source.substr(pos, end - pos))
-      .map(c => c.replace(/^\/\*\*/, ''))
-      .map(c => c.replace(/\*\//, ''))
       .join('')
       .trim();
 
-    return doctrine.parse(mergedComment);
+    return doctrine.parse(mergedComment, {unwrap: true});
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {
