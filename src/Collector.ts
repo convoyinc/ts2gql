@@ -73,22 +73,25 @@ export default class Collector {
     if (node.name.text === 'Date') {
       return {type: 'reference', target: 'Date'};
     }
-    const inherits = [];
-    if (node.heritageClauses) {
-      for (const clause of node.heritageClauses) {
-        for (const type of clause.types) {
-          const symbol = this._symbolForNode(type.expression);
-          this._walkSymbol(symbol);
-          inherits.push(this._nameForSymbol(symbol));
+
+    return this._addType(node, () => {
+      const inherits = [];
+      if (node.heritageClauses) {
+        for (const clause of node.heritageClauses) {
+          for (const type of clause.types) {
+            const symbol = this._symbolForNode(type.expression);
+            this._walkSymbol(symbol);
+            inherits.push(this._nameForSymbol(symbol));
+          }
         }
       }
-    }
 
-    return this._addType(node, () => ({
-      type: 'interface',
-      members: _.keyBy(node.members.map(this._walkNode), 'name'),
-      inherits,
-    }));
+      return {
+        type: 'interface',
+        members: _.keyBy(node.members.map(this._walkNode), 'name'),
+        inherits,
+      };
+    });
   }
 
   _walkMethodSignature(node:typescript.MethodSignature):types.Node {
