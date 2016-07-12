@@ -15,7 +15,6 @@ export interface User {
   photo: Url;
 }
 
-/** @graphql fragment content on Post */
 export interface PostContent {
   title: string;
   body: string;
@@ -56,11 +55,6 @@ type User {
 interface PostContent {
   body: String
   title: String
-}
-
-fragment content on Post {
-  body
-  title
 }
 
 type Post {
