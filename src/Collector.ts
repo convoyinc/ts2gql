@@ -15,6 +15,7 @@ export default class Collector {
     Date: {type: 'alias', target: {type: 'string'}},
   };
   private checker:typescript.TypeChecker;
+  private nodeMap:Map<typescript.Node, types.Node> = new Map;
 
   constructor(private program:typescript.Program) {
     this.checker = program.getTypeChecker();
@@ -28,40 +29,52 @@ export default class Collector {
   // Node Walking
 
   _walkNode = (node:typescript.Node):types.Node => {
-    switch (node.kind) {
-      case SyntaxKind.InterfaceDeclaration:
-        return this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
-      case SyntaxKind.MethodSignature:
-        return this._walkMethodSignature(<typescript.MethodSignature>node);
-      case SyntaxKind.PropertySignature:
-        return this._walkPropertySignature(<typescript.PropertySignature>node);
-      case SyntaxKind.TypeReference:
-        return this._walkTypeReferenceNode(<typescript.TypeReferenceNode>node);
-      case SyntaxKind.TypeAliasDeclaration:
-        return this._walkTypeAliasDeclaration(<typescript.TypeAliasDeclaration>node);
-      case SyntaxKind.EnumDeclaration:
-        return this._walkEnumDeclaration(<typescript.EnumDeclaration>node);
-      case SyntaxKind.TypeLiteral:
-        return this._walkTypeLiteralNode(<typescript.TypeLiteralNode>node);
-      case SyntaxKind.ArrayType:
-        return this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
-      case SyntaxKind.UnionType:
-        return this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
-      case SyntaxKind.StringKeyword:
-        return {type: 'string'};
-      case SyntaxKind.NumberKeyword:
-        return {type: 'number'};
-      case SyntaxKind.BooleanKeyword:
-        return {type: 'boolean'};
-      case SyntaxKind.ModuleDeclaration:
-        return null;
-      case SyntaxKind.VariableDeclaration:
-        return null;
-      default:
-        console.log(node);
-        console.log(node.getSourceFile().fileName);
-        throw new Error(`Don't know how to handle ${SyntaxKind[node.kind]} nodes`);
+    // Reentrant node walking.
+    if (this.nodeMap.has(node)) {
+      return this.nodeMap.get(node);
     }
+    const nodeReference:types.Node = <types.Node>{};
+    this.nodeMap.set(node, nodeReference);
+
+    let result:types.Node;
+    if (node.kind === SyntaxKind.InterfaceDeclaration) {
+      result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
+    } else if (node.kind === SyntaxKind.MethodSignature) {
+      result = this._walkMethodSignature(<typescript.MethodSignature>node);
+    } else if (node.kind === SyntaxKind.PropertySignature) {
+      result = this._walkPropertySignature(<typescript.PropertySignature>node);
+    } else if (node.kind === SyntaxKind.TypeReference) {
+      result = this._walkTypeReferenceNode(<typescript.TypeReferenceNode>node);
+    } else if (node.kind === SyntaxKind.TypeAliasDeclaration) {
+      result = this._walkTypeAliasDeclaration(<typescript.TypeAliasDeclaration>node);
+    } else if (node.kind === SyntaxKind.EnumDeclaration) {
+      result = this._walkEnumDeclaration(<typescript.EnumDeclaration>node);
+    } else if (node.kind === SyntaxKind.TypeLiteral) {
+      result = this._walkTypeLiteralNode(<typescript.TypeLiteralNode>node);
+    } else if (node.kind === SyntaxKind.ArrayType) {
+      result = this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
+    } else if (node.kind === SyntaxKind.UnionType) {
+      result = this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
+    } else if (node.kind === SyntaxKind.StringKeyword) {
+      result = {type: 'string'};
+    } else if (node.kind === SyntaxKind.NumberKeyword) {
+      result = {type: 'number'};
+    } else if (node.kind === SyntaxKind.BooleanKeyword) {
+      result = {type: 'boolean'};
+    } else if (node.kind === SyntaxKind.ModuleDeclaration) {
+      // Nada.
+    } else if (node.kind === SyntaxKind.VariableDeclaration) {
+      // Nada.
+    } else {
+      console.log(node);
+      console.log(node.getSourceFile().fileName);
+      throw new Error(`Don't know how to handle ${SyntaxKind[node.kind]} nodes`);
+    }
+
+    if (result) {
+      Object.assign(nodeReference, result);
+    }
+    return nodeReference;
   }
 
   _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
