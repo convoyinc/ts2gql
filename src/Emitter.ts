@@ -67,7 +67,25 @@ export default class Emitter {
   }
 
   _emitInterface(node:types.InterfaceNode, name:types.SymbolName):string {
-    const properties = _.map(node.members, (member) => {
+    // GraphQL expects denormalized type interfaces
+    const members = <types.Node[]>_(this._transitiveInterfaces(node))
+      .map(i => i.members)
+      .flatten()
+      .uniqBy('name')
+      .sortBy('name')
+      .value();
+
+    // GraphQL can't handle empty types or interfaces, but we also don't want
+    // to remove all references (complicated).
+    if (!members.length) {
+      members.push({
+        type: 'property',
+        name: '__placeholder',
+        signature: {type: 'boolean'},
+      });
+    }
+
+    const properties = _.map(members, (member) => {
       if (member.type === 'method') {
         let parameters = '';
         if (_.size(member.parameters) > 1) {
@@ -84,7 +102,11 @@ export default class Emitter {
       }
     });
 
-    return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
+    if (node.concrete) {
+      return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
+    } else {
+      return `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
+    }
   }
 
   _emitEnum(node:types.EnumNode, name:types.SymbolName):string {
@@ -133,6 +155,15 @@ export default class Emitter {
   _indent(content:string|string[]):string {
     if (!_.isArray(content)) content = content.split('\n');
     return content.map(s => `  ${s}`).join('\n');
+  }
+
+  _transitiveInterfaces(node:types.InterfaceNode):types.InterfaceNode[] {
+    let interfaces = [node];
+    for (const name of node.inherits) {
+      const inherited = <types.InterfaceNode>this.types[name];
+      interfaces = interfaces.concat(this._transitiveInterfaces(inherited));
+    }
+    return _.uniq(interfaces);
   }
 
 }
