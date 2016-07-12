@@ -8,6 +8,7 @@ export interface InterfaceNode extends ComplexNode {
   type:'interface';
   members:Node[];
   inherits:SymbolName[];
+  concrete?:boolean; // Whether the type is directly used (returned).
   query?:boolean;
 }
 

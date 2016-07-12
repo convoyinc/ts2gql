@@ -22,8 +22,10 @@ export default class Collector {
   }
 
   addQueryNode(node:typescript.Declaration):void {
-    const simpleNode = <types.InterfaceNode>this._walkNode(node);
+    this._walkNode(node);
+    const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
     simpleNode.query = true;
+    simpleNode.concrete = true;
   }
 
   // Node Walking
@@ -134,6 +136,10 @@ export default class Collector {
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
     const symbol = this._symbolForNode(node.typeName);
     this._walkSymbol(symbol);
+    const referenced = this.types[this._nameForSymbol(symbol)];
+    if (referenced && referenced.type === 'interface') {
+      referenced.concrete = true;
+    }
 
     return {
       type: 'reference',
