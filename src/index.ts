@@ -3,6 +3,7 @@ import * as typescript from 'typescript';
 import * as path from 'path';
 
 import * as types from './types';
+import * as util from './util';
 import Collector from './Collector';
 import Emitter from './Emitter';
 
@@ -27,6 +28,13 @@ export function load(schemaRootPath:string, queryInterfaceName:string):types.Typ
 
   const collector = new Collector(program);
   collector.addQueryNode(queryInterface);
+
+  _.each(interfaces, (node, name) => {
+    const documentation = util.documentationForNode(node);
+    const override = _.find(documentation.tags, {title: 'graphql', description: 'override'});
+    if (!override) return;
+    collector.mergeOverrides(node, name);
+  });
 
   return collector.types;
 }

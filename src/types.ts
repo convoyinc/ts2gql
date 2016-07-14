@@ -8,7 +8,7 @@ export interface ComplexNode {
 
 export interface InterfaceNode extends ComplexNode {
   type:'interface';
-  members:Node[];
+  members:NamedNode[];
   inherits:SymbolName[];
   concrete?:boolean; // Whether the type is directly used (returned).
   query?:boolean;
@@ -82,5 +82,7 @@ export type Node =
   StringNode |
   NumberNode |
   BooleanNode;
+
+export type NamedNode = MethodNode | PropertyNode;
 
 export type TypeMap = {[key:string]:Node};

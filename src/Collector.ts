@@ -1,8 +1,8 @@
 import * as _ from 'lodash';
 import * as typescript from 'typescript';
-import * as doctrine from 'doctrine';
 
 import * as types from './types';
+import * as util from './util';
 
 const SyntaxKind = typescript.SyntaxKind;
 const TypeFlags = typescript.TypeFlags;
@@ -27,6 +27,19 @@ export default class Collector {
     const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
     simpleNode.query = true;
     simpleNode.concrete = true;
+  }
+
+  mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
+    const existing = <types.InterfaceNode>this.types[name];
+    if (!existing) {
+      throw new Error(`Cannot override "${name}" - it was never included`);
+    }
+    const overrides = <types.NamedNode[]>node.members.map(this._walkNode);
+    const overriddenNames = new Set(overrides.map(o => (<any>o).name));
+    existing.members = _(existing.members)
+      .filter(m => overriddenNames.has(m.name))
+      .concat(overrides)
+      .value();
   }
 
   // Node Walking
@@ -104,7 +117,7 @@ export default class Collector {
 
       return {
         type: 'interface',
-        members: node.members.map(this._walkNode),
+        members: <types.NamedNode[]>node.members.map(this._walkNode),
         inherits,
       };
     });
@@ -216,22 +229,9 @@ export default class Collector {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
-    (<types.ComplexNode>type).documentation = this._documentationForNode(node);
+    (<types.ComplexNode>type).documentation = util.documentationForNode(node);
     this.types[name] = type;
     return type;
-  }
-
-  _documentationForNode(node:typescript.Node):doctrine.ParseResult {
-    const source = node.getSourceFile().text;
-    const commentRanges = typescript.getLeadingCommentRanges(source, node.getFullStart());
-    if (!commentRanges) return null;
-
-    const mergedComment = _(commentRanges)
-      .map(({pos, end}) => source.substr(pos, end - pos))
-      .join('')
-      .trim();
-
-    return doctrine.parse(mergedComment, {unwrap: true});
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {
