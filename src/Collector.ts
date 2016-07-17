@@ -22,10 +22,9 @@ export default class Collector {
     this.checker = program.getTypeChecker();
   }
 
-  addQueryNode(node:typescript.Declaration):void {
+  addRootNode(node:typescript.Declaration):void {
     this._walkNode(node);
     const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
-    simpleNode.query = true;
     simpleNode.concrete = true;
   }
 

@@ -11,7 +11,6 @@ export interface InterfaceNode extends ComplexNode {
   members:NamedNode[];
   inherits:SymbolName[];
   concrete?:boolean; // Whether the type is directly used (returned).
-  query?:boolean;
 }
 
 export interface MethodNode extends ComplexNode {

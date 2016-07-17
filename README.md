@@ -32,22 +32,28 @@ export interface Category {
   posts: Post[];
 }
 
-export interface RootQuery {
+export interface QueryRoot {
   users(args: {id: Id}): User[]
   posts(args: {id: Id, authorId: Id, categoryId: Id}): Post[]
   categories(args: {id: Id}): Category[]
 }
+
+export interface MutationRoot {
+  login(args: {username: string, password: string}): QueryRoot;
+}
 ```
 
 ```
-> ts2gql input.ts RootQuery
+> ts2gql input.ts QueryRoot MutationRoot
 
 scalar Date
+
+scalar Id
 
 scalar Url
 
 type User {
-  id: ID
+  id: Id
   name: String
   photo: Url
 }
@@ -60,21 +66,25 @@ interface PostContent {
 type Post {
   author: User
   body: String
-  id: ID
+  id: Id
   postedAt: Date
   title: String
 }
 
 type Category {
-  id: ID
+  id: Id
   name: String
   posts: [Post]
 }
 
-type RootQuery {
-  categories(id: ID): [Category]
-  posts(id: ID, authorId: ID, categoryId: ID): [Post]
-  users(id: ID): [User]
+type QueryRoot {
+  categories(id: Id): [Category]
+  posts(id: Id, authorId: Id, categoryId: Id): [Post]
+  users(id: Id): [User]
+}
+
+type MutationRoot {
+  login(username: String, password: String): QueryRoot
 }
 
 ```

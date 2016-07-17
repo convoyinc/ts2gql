@@ -7,7 +7,7 @@ import * as util from './util';
 import Collector from './Collector';
 import Emitter from './Emitter';
 
-export function load(schemaRootPath:string, queryInterfaceName:string):types.TypeMap {
+export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMap {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
@@ -21,16 +21,18 @@ export function load(schemaRootPath:string, queryInterfaceName:string):types.Typ
     }
   });
 
-  const queryInterface = interfaces[queryInterfaceName];
-  if (!queryInterface) {
-    throw new Error(`No interface named ${queryInterfaceName} was exported by ${schemaRootPath}`);
-  }
-
   const collector = new Collector(program);
-  collector.addQueryNode(queryInterface);
+  for (const name of rootNodeNames) {
+    const rootInterface = interfaces[name];
+      if (!rootInterface) {
+      throw new Error(`No interface named ${name} was exported by ${schemaRootPath}`);
+    }
+    collector.addRootNode(rootInterface);
+  }
 
   _.each(interfaces, (node, name) => {
     const documentation = util.documentationForNode(node);
+    if (!documentation) return;
     const override = _.find(documentation.tags, {title: 'graphql', description: 'override'});
     if (!override) return;
     collector.mergeOverrides(node, name);
@@ -39,8 +41,8 @@ export function load(schemaRootPath:string, queryInterfaceName:string):types.Typ
   return collector.types;
 }
 
-export function emit(schemaRootPath:string, queryInterfaceName:string, stream:NodeJS.WritableStream = process.stdout):void {
-  const types = load(schemaRootPath, queryInterfaceName);
+export function emit(schemaRootPath:string, rootNodeNames:string[], stream:NodeJS.WritableStream = process.stdout):void {
+  const types = load(schemaRootPath, rootNodeNames);
   const emitter = new Emitter(types);
   emitter.emitAll(stream);
 }

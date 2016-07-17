@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-if (process.argv.length !== 4) {
+if (process.argv.length < 4) {
   process.stderr.write('\n');
-  process.stderr.write('Usage: ts2gql root/module.ts RootType\n');
+  process.stderr.write('Usage: ts2gql root/module.ts RootNode…\n');
   process.stderr.write('\n');
   process.exit(1);
 }
 
-require('..').emit(process.argv[2], process.argv[3], process.stdout);
+require('..').emit(process.argv[2], process.argv.slice(3), process.stdout);
