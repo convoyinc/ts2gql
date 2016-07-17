@@ -41,10 +41,16 @@ export interface QueryRoot {
 export interface MutationRoot {
   login(args: {username: string, password: string}): QueryRoot;
 }
+
+/** @graphql schema */
+export interface Schema {
+  query: QueryRoot;
+  mutation: MutationRoot;
+}
 ```
 
 ```
-> ts2gql input.ts QueryRoot MutationRoot
+> ts2gql input.ts Schema
 
 scalar Date
 
@@ -85,6 +91,11 @@ type QueryRoot {
 
 type MutationRoot {
   login(username: String, password: String): QueryRoot
+}
+
+schema {
+  mutation: MutationRoot
+  query: QueryRoot
 }
 
 ```
