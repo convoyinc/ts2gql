@@ -129,7 +129,7 @@ export default class Emitter {
     } else if (node.type === 'string') {
       return 'String'; // TODO: ID annotation
     } else if (node.type === 'number') {
-      return 'Int'; // TODO: Float annotation
+      return 'Float'; // TODO: Int/Float annotation
     } else if (node.type === 'boolean') {
       return 'Boolean';
     } else if (node.type === 'reference') {
