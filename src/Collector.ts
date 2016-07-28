@@ -158,10 +158,25 @@ export default class Collector {
   }
 
   _walkEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
-    return this._addType(node, () => ({
-      type: 'enum',
-      values: node.members.map(m => m.name.getText()),
-    }));
+    return this._addType(node, () => {
+      const values = node.members.map(m => {
+        if (!m.initializer) {
+          /**
+           *  Enum's should look like this:
+           *    export enum Type {
+           *      CREATED        = <any>'CREATED',
+           *      ACCEPTED       = <any>'ACCEPTED',
+           *    }
+           */
+          throw new Error(`enum ${node.name.getText()} must have string values`);
+        }
+        return _.trim(_.last(m.initializer.getChildren()).getText(), "'");
+      });
+      return {
+        type: 'enum',
+        values,
+      };
+    });
   }
 
   _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
