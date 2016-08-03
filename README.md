@@ -4,7 +4,7 @@ Walks a TypeScript type hierarchy and translates it into GraphQL's IDL.
 
 Usage: `ts2gql root/module.ts`
 
-`ts2gql` will load `root/module.ts` (and any modules it imports), look for an exported interface annotated with `/** @graphql schema */`.  All types referenced by that interface will be converted into GraphQL's IDL.
+`ts2gql` will load `root/module.ts` (and transitive dependencies), and look for an exported interface annotated with `/** @graphql schema */`, which will become the GraphQL `schema` declaration.  All types referenced by that interface will be converted into GraphQL's IDL.
 
 ## Example (and "Docs")
 
