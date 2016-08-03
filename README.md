@@ -1,14 +1,23 @@
 # ts2gql
 
-Converts a TypeScript type hierarchy into GraphQL's IDL.
+Walks a TypeScript type hierarchy and translates it into GraphQL's IDL.
+
+Usage: `Usage: ts2gql root/module.ts`
+
+`ts2gql` will load `root/module.ts` (and any modules it imports), look for an exported interface annotated with `/** @graphql schema */`.  All types referenced by that interface will be converted into GraphQL's IDL.
+
+## Example (and "Docs")
 
 `input.ts`
 ```ts
+// Type aliases become GraphQL scalars.
+export type Url = string;
+
+// If you want an explicit GraphQL ID type, you can do that too:
 /** @graphql ID */
 export type Id = string;
 
-export type Url = string;
-
+// Interfaces become GraphQL types.
 export interface User {
   id: Id;
   name: string;
@@ -32,6 +41,7 @@ export interface Category {
   posts: Post[];
 }
 
+// Methods are transformed into parameteried edges:
 export interface QueryRoot {
   users(args: {id: Id}): User[]
   posts(args: {id: Id, authorId: Id, categoryId: Id}): Post[]
@@ -42,24 +52,32 @@ export interface MutationRoot {
   login(args: {username: string, password: string}): QueryRoot;
 }
 
+// Don't forget to declare your schema and the root types!
 /** @graphql schema */
 export interface Schema {
   query: QueryRoot;
   mutation: MutationRoot;
 }
+
+// You may also wish to expose some GraphQL specific fields or parameterized
+// calls on particular types, while still preserving the shape of your
+// interfaces for more general use:
+/** @graphql override Category */
+export interface CategoryOverrides {
+  // for example, we may want to be able to filter or paginate posts:
+  posts(args: {authorId:Id}): Post[]
+}
 ```
 
 ```
-> ts2gql input.ts Schema
+> ts2gql input.ts
 
 scalar Date
-
-scalar Id
 
 scalar Url
 
 type User {
-  id: Id
+  id: ID
   name: String
   photo: Url
 }
@@ -72,21 +90,21 @@ interface PostContent {
 type Post {
   author: User
   body: String
-  id: Id
+  id: ID
   postedAt: Date
   title: String
 }
 
 type Category {
-  id: Id
+  id: ID
   name: String
-  posts: [Post]
+  posts(authorId: ID): [Post]
 }
 
 type QueryRoot {
-  categories(id: Id): [Category]
-  posts(id: Id, authorId: Id, categoryId: Id): [Post]
-  users(id: Id): [User]
+  categories(id: ID): [Category]
+  posts(id: ID, authorId: ID, categoryId: ID): [Post]
+  users(id: ID): [User]
 }
 
 type MutationRoot {
