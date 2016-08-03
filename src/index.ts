@@ -18,8 +18,15 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
     if (node.kind === typescript.SyntaxKind.InterfaceDeclaration) {
       const interfaceNode = <typescript.InterfaceDeclaration>node;
       interfaces[interfaceNode.name.text] = interfaceNode;
+
+      const documentation = util.documentationForNode(interfaceNode, schemaRoot.text);
+      if (documentation && _.find(documentation.tags, {title: 'graphql', description: 'schema'})) {
+        rootNodeNames.push(interfaceNode.name.text);
+      }
     }
   });
+
+  rootNodeNames = _.uniq(rootNodeNames);
 
   const collector = new Collector(program);
   for (const name of rootNodeNames) {

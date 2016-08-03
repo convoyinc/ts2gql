@@ -2,8 +2,8 @@ import * as _ from 'lodash';
 import * as doctrine from 'doctrine';
 import * as typescript from 'typescript';
 
-export function documentationForNode(node:typescript.Node):doctrine.ParseResult {
-  const source = node.getSourceFile().text;
+export function documentationForNode(node:typescript.Node, source?:string):doctrine.ParseResult {
+  source = source || node.getSourceFile().text;
   const commentRanges = typescript.getLeadingCommentRanges(source, node.getFullStart());
   // We only care about the closest comment to the node.
   const lastRange = _.last(commentRanges);
