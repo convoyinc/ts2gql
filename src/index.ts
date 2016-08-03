@@ -33,9 +33,10 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
   _.each(interfaces, (node, name) => {
     const documentation = util.documentationForNode(node);
     if (!documentation) return;
-    const override = _.find(documentation.tags, {title: 'graphql', description: 'override'});
+    const override = _.find(documentation.tags, t => t.title === 'graphql' && t.description.startsWith('override'));
     if (!override) return;
-    collector.mergeOverrides(node, name);
+    const overrideName = override.description.split(' ')[1] || name;
+    collector.mergeOverrides(node, overrideName);
   });
 
   return collector.types;

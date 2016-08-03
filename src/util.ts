@@ -5,12 +5,10 @@ import * as typescript from 'typescript';
 export function documentationForNode(node:typescript.Node):doctrine.ParseResult {
   const source = node.getSourceFile().text;
   const commentRanges = typescript.getLeadingCommentRanges(source, node.getFullStart());
-  if (!commentRanges) return null;
+  // We only care about the closest comment to the node.
+  const lastRange = _.last(commentRanges);
+  if (!lastRange) return null;
+  const comment = source.substr(lastRange.pos, lastRange.end - lastRange.pos).trim();
 
-  const mergedComment = _(commentRanges)
-    .map(({pos, end}) => source.substr(pos, end - pos))
-    .join('')
-    .trim();
-
-  return doctrine.parse(mergedComment, {unwrap: true});
+  return doctrine.parse(comment, {unwrap: true});
 }

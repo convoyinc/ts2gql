@@ -36,7 +36,7 @@ export default class Collector {
     const overrides = <types.NamedNode[]>node.members.map(this._walkNode);
     const overriddenNames = new Set(overrides.map(o => (<any>o).name));
     existing.members = _(existing.members)
-      .filter(m => overriddenNames.has(m.name))
+      .filter(m => !overriddenNames.has(m.name))
       .concat(overrides)
       .value();
   }
