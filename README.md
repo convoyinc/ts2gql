@@ -59,6 +59,14 @@ export interface Schema {
   mutation: MutationRoot;
 }
 
+// If you have input objects (http://docs.apollostack.com/graphql/schemas.html#input-objects)
+/** @graphql input */
+export interface EmailRecipients {
+  type:string
+  name:string
+  email:Email
+}
+
 // You may also wish to expose some GraphQL specific fields or parameterized
 // calls on particular types, while still preserving the shape of your
 // interfaces for more general use:
