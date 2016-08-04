@@ -106,6 +106,10 @@ export default class Emitter {
       return `schema {\n${this._indent(properties)}\n}`;
     }
 
+    if (this._getDocTag(node, 'input')) {
+      return `input ${this._name(name)} {\n${this._indent(properties)}\n}`;
+    }
+
     if (node.concrete) {
       return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
     }
