@@ -104,9 +104,7 @@ export default class Emitter {
 
     if (this._getDocTag(node, 'schema')) {
       return `schema {\n${this._indent(properties)}\n}`;
-    }
-
-    if (this._getDocTag(node, 'input')) {
+    } else if (this._getDocTag(node, 'input')) {
       return `input ${this._name(name)} {\n${this._indent(properties)}\n}`;
     }
 
