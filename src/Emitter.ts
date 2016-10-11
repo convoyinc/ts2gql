@@ -58,9 +58,16 @@ export default class Emitter {
         if (type.type !== 'reference') {
           throw new Error(`GraphQL unions require that all types are references.  Got a ${type.type}`);
         }
-        return this._name(type.target);
+        const subNode = this.types[type.target];
+        if (subNode.type !== 'enum') {
+          throw new Error(`ts2gql currently does not support unions for type: ${subNode.type}`);
+        }
+        return subNode.values;
       });
-      return `union ${this._name(name)} = ${types.join(' | ')}`;
+      return this._emitEnum({
+        type: 'enum',
+        values: _.uniq(_.flatten(types)),
+      }, this._name(name));
     } else {
       throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
     }
