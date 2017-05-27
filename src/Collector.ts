@@ -143,6 +143,7 @@ export default class Collector {
       type: 'property',
       name: node.name.getText(),
       signature: this._walkNode(node.type),
+      hasQuestionToken: !!node.questionToken,
     };
   }
 

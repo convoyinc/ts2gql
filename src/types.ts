@@ -34,6 +34,7 @@ export interface PropertyNode extends ComplexNode {
   type:'property';
   name:string;
   signature:Node;
+  hasQuestionToken:boolean;
 }
 
 export interface AliasNode extends ComplexNode {
