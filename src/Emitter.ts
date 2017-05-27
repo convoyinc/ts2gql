@@ -89,6 +89,7 @@ export default class Emitter {
         type: 'property',
         name: '__placeholder',
         signature: {type: 'boolean'},
+        hasQuestionToken: false,
       });
     }
 
@@ -103,7 +104,7 @@ export default class Emitter {
         const returnType = this._emitExpression(member.returns);
         return `${this._name(member.name)}${parameters}: ${returnType}`;
       } else if (member.type === 'property') {
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}${this._emitRequiredToken(member.hasQuestionToken)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -151,13 +152,17 @@ export default class Emitter {
           if (member.type !== 'property') {
             throw new Error(`Expected members of literal object to be properties; got ${member.type}`);
           }
-          return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+          return `${this._name(member.name)}: ${this._emitExpression(member.signature)}${this._emitRequiredToken(member.hasQuestionToken)}`;
         })
         .join(', ');
     } else {
       console.log(node);
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
+  }
+
+  _emitRequiredToken(hasQuestionToken:boolean) {
+    return !hasQuestionToken ? '!' : '';
   }
 
   // Utility
