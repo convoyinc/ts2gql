@@ -7,6 +7,8 @@ import * as util from './util';
 import Collector from './Collector';
 import Emitter from './Emitter';
 
+export { generateFragments, fragment } from './Fragment';
+
 export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMap {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
@@ -56,6 +58,6 @@ export function emit(schemaRootPath:string, rootNodeNames:string[], stream:NodeJ
 }
 
 function isNodeExported(node:typescript.Node):boolean {
-  return (node.flags & typescript.NodeFlags.Export) !== 0
+  return (node.flags & typescript.NodeFlags.ExportContext) !== 0
     || (node.parent && node.parent.kind === typescript.SyntaxKind.SourceFile);
 }

@@ -203,11 +203,11 @@ export default class Collector {
   // Type Walking
 
   _walkType = (type:typescript.Type):types.Node => {
-    if (type.flags & TypeFlags.Reference) {
+    if (type.flags & TypeFlags.Object) {
       return this._walkTypeReference(<typescript.TypeReference>type);
-    } else if (type.flags & TypeFlags.Interface) {
+    } else if (type.flags & TypeFlags.BooleanLike) {
       return this._walkInterfaceType(<typescript.InterfaceType>type);
-    } else if (type.flags & TypeFlags.Anonymous) {
+    } else if (type.flags & TypeFlags.Index) {
       return this._walkNode(type.getSymbol().declarations[0]);
     } else if (type.flags & TypeFlags.String) {
       return {type: 'string'};
