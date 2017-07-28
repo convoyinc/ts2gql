@@ -1,6 +1,7 @@
-machine:
-  node:
-    version: 6.2.2
+dependencies:
+  override:
+    - nvm install && nvm alias default $(cat .nvmrc)
+    - npm install
 
 test:
   override:
