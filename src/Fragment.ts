@@ -1,10 +1,18 @@
 import * as _ from 'lodash';
 import * as typescript from  'typescript';
 import * as path from 'path';
+import * as fs from 'fs';
 
-// Find files that import { fragment } from '@convoy/ts2gql'
-// Log that '* as' is not supported
-// Support 'as' in import
+// TODO:
+// Find all files that import { fragment } from '@convoy/ts2gql'
+// Use config to find calls to @convoy/ts2gql not ../src
+//    or better yet use the symbol itself
+// Log that 'import * as ts2gql from ...' is not supported
+//    or actually suppor it
+// Create directory to file you are writing to
+// Convert Namespace.Type to appropriate name of Namespace_Type
+// Verify that interface adheres to being a partial of the interface its on
+//    or does GraphQL do that for us?
 
 export function generateFragments(rootPath:string) {
   rootPath = path.resolve(rootPath);
@@ -21,33 +29,37 @@ export function generateFragments(rootPath:string) {
     file.calls.forEach(call => {
       const gqlPath = path.resolve(file.filePath, call.relativePath);
       const fileName = path.basename(gqlPath, path.extname(gqlPath));
-      console.log(gqlPath);
-      console.log(`fragment ${fileName} on ${call.baseName} {`);
-      emitFields(call.properties);
-      console.log('}');
+      const stream = fs.createWriteStream(gqlPath, { autoClose: false } as any);
+      stream.write(`fragment ${fileName} on ${call.baseName} {\n`);
+      emitFields(call.properties, stream);
+      stream.write('}\n');
+      console.log(`Created fragment at ${gqlPath}`);
     });
   });
 }
 
-function emitFields(fields, indent = '  ') {
+function emitFields(fields:Field[], stream:NodeJS.WritableStream, indent = '  ') {
   fields.forEach(field => {
     if (field.subfields) {
-      console.log(`${indent}${field.name} {`);
-      emitFields(field.subfields, `${indent}  `);
-      console.log(`${indent}}`);
+      stream.write(`${indent}${field.name} {\n`);
+      emitFields(field.subfields, stream, `${indent}  `);
+      stream.write(`${indent}}\n`);
     } else {
-      console.log(`${indent}${field.name}`);
+      stream.write(`${indent}${field.name}\n`);
     }
   });
 }
 
+/**
+ * Finds all calls to ts2gql fragment() in a given file.
+ */
 function collectFromFile(file:typescript.SourceFile, checker:typescript.TypeChecker, rootPath:string) {
   // Find the actual fragment function call imported from ts2gql
-  let fragmentIdentifier;
+  let fragmentIdentifier:typescript.Identifier;
   typescript.forEachChild(file, child => {
     if (child.kind === typescript.SyntaxKind.ImportDeclaration) {
       const declaration = child as typescript.ImportDeclaration;
-      // TODO config @convoy/ts2gql
+
       if ((declaration.moduleSpecifier as typescript.StringLiteral).text === '../src') {
         const bindings = (declaration.importClause as typescript.ImportClause).namedBindings as typescript.NamedImports;
         const elements = bindings.elements as typescript.ImportSpecifier[];
@@ -61,8 +73,14 @@ function collectFromFile(file:typescript.SourceFile, checker:typescript.TypeChec
   return collectFragmentCalls(file, checker, fragmentIdentifier.text);
 }
 
+interface FragmentCall {
+  properties:Field[];
+  baseName:string;
+  relativePath:string;
+}
+
 function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeChecker, fragmentCallIdentifier:string) {
-  let calls = [];
+  let calls:FragmentCall[] = [];
   typescript.forEachChild(node, child => {
     const childCalls = collectFragmentCalls(child, checker, fragmentCallIdentifier);
     if (childCalls) {
@@ -71,7 +89,6 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
     if (child.kind !== typescript.SyntaxKind.CallExpression) return null;
     const call = child as typescript.CallExpression;
 
-    // TODO Can we get the actual symbol?
     if ((call.expression as typescript.Identifier).text !== fragmentCallIdentifier) return null;
     if (call.typeArguments.length !== 2) {
       throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)) should have two type arguments');
@@ -114,8 +131,13 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
   return calls;
 }
 
+interface Field {
+  name:string;
+  subfields:Field[];
+}
+
 function collectProperties(typeNode:typescript.TypeNode, checker:typescript.TypeChecker) {
-  const fields = [];
+  const fields:Field[] = [];
   const type = checker.getTypeFromTypeNode(typeNode);
 
   // For unstructured types (like string, number, etc) we don't need to loop through their properties

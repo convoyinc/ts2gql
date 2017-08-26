@@ -4,10 +4,12 @@ import * as types from './types';
 
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
 export default class Emitter {
+  private types:types.TypeMap;
+
   renames:{[key:string]:string} = {};
 
-  constructor(private types:types.TypeMap) {
-    this.types = <types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name));
+  constructor(typeMap:types.TypeMap) {
+    this.types = <types.TypeMap>_.omitBy(typeMap, (node, name) => this._preprocessNode(node, name));
   }
 
   emitAll(stream:NodeJS.WritableStream) {
@@ -54,7 +56,7 @@ export default class Emitter {
     } else if (node.target.type === 'reference') {
       return `union ${this._name(name)} = ${this._name(node.target.target)}`;
     } else if (node.target.type === 'union') {
-      const types = node.target.types.map(type => {
+      const typeList = node.target.types.map(type => {
         if (type.type !== 'reference') {
           throw new Error(`GraphQL unions require that all types are references.  Got a ${type.type}`);
         }
@@ -66,7 +68,7 @@ export default class Emitter {
       });
       return this._emitEnum({
         type: 'enum',
-        values: _.uniq(_.flatten(types)),
+        values: _.uniq(_.flatten(typeList)),
       }, this._name(name));
     } else {
       throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);

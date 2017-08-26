@@ -1,24 +1,25 @@
-import { fragment as fragmentCall } from '../src';
+import { fragment } from '../src';
 import { Post, User } from './input';
 import 'graphql-tag';
 
 interface AuthorProps {
   author:Pick<User, 'name' | 'photo'>;
 }
+
 interface DateTimeProps {
   post:Pick<Post, 'postedAt'>;
 }
 
 type PostProps =
-  // Displaying direct props of the entity
+  // When current component directly displays properties of the entity
   Pick<Post, 'id' | 'title'> &
-  // Passing the entire entity to another component
+  // When passing the entire entity to another component
   DateTimeProps['post'] &
   // Passing a prop of the entity to another component
   {
     author:AuthorProps['author'];
   } &
-  // Deeply retrieving a prop from an entity
+  // When current component displays deep properties of an entity
   {
     editor:{
       name:User['name'],
@@ -28,20 +29,7 @@ type PostProps =
 const query = `
   query getPosts() {
     posts() {
-      ...${fragmentCall<PostProps, Post>(require('../graphql/getPosts.grapql'))}
+      ...${fragment<PostProps, Post>(require('../graphql/getPosts.graphql'))}
     }
   }
 `;
-
-// fragment<T>() === `
-//   fragment PostProps on Post {
-//     id
-//     title
-//     postedAt
-//     author {
-//       id
-//       name
-//       photo
-//     }
-//   }
-// `;

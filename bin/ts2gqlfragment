@@ -6,4 +6,4 @@ if (process.argv.length < 3) {
   process.exit(1);
 }
 
-require('../dist/src').generateFragments(process.argv[2]);
+require('../dist').generateFragments(process.argv[2]);

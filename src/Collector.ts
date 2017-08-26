@@ -22,7 +22,7 @@ export default class Collector {
     this.checker = program.getTypeChecker();
   }
 
-  addRootNode(node:typescript.Declaration):void {
+  addRootNode(node:typescript.InterfaceDeclaration):void {
     this._walkNode(node);
     const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
     simpleNode.concrete = true;
@@ -239,7 +239,7 @@ export default class Collector {
 
   // Utility
 
-  _addType(node:typescript.Declaration, typeBuilder:() => types.Node):types.Node {
+  _addType(node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration, typeBuilder:() => types.Node):types.Node {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
