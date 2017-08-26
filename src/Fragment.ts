@@ -4,7 +4,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // TODO:
-// Find all files that import { fragment } from '@convoy/ts2gql'
 // Use config to find calls to @convoy/ts2gql not ../src
 //    or better yet use the symbol itself
 // Log that 'import * as ts2gql from ...' is not supported
