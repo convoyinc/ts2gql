@@ -41,11 +41,29 @@ export interface Category {
   posts: Post[];
 }
 
+/** @graphql input */
+export interface IdQuery {
+  id: Id;
+}
+
+/** @graphql input */
+export interface PostQuery extends IdQuery {
+  authorId: Id;
+  categoryId: Id;
+}
+
 // Methods are transformed into parameteried edges:
 export interface QueryRoot {
   users(args: {id: Id}): User[]
   posts(args: {id: Id, authorId: Id, categoryId: Id}): Post[]
   categories(args: {id: Id}): Category[]
+}
+
+// Input types can be composed with inheritence. This renders to the same graphql as QueryRoot above.
+export interface QueryRootUsingTypes {
+  users(args:IdQuery): User[]
+  posts(args:PostQuery): Post[]
+  categories(args:IdQuery): Category[]
 }
 
 export interface MutationRoot {
@@ -110,6 +128,12 @@ type Category {
 }
 
 type QueryRoot {
+  categories(id: ID): [Category]
+  posts(id: ID, authorId: ID, categoryId: ID): [Post]
+  users(id: ID): [User]
+}
+
+type QueryRootUsingTypes {
   categories(id: ID): [Category]
   posts(id: ID, authorId: ID, categoryId: ID): [Post]
   users(id: ID): [User]

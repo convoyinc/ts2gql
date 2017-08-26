@@ -98,7 +98,11 @@ export default class Emitter {
         if (_.size(member.parameters) > 1) {
           throw new Error(`Methods can have a maximum of 1 argument`);
         } else if (_.size(member.parameters) === 1) {
-          parameters = `(${this._emitExpression(<types.Node>_.values(member.parameters)[0])})`;
+          let argType = _.values(member.parameters)[0] as types.Node;
+          if (argType.type === 'reference') {
+            argType = this.types[argType.target];
+          }
+          parameters = `(${this._emitExpression(argType)})`;
         }
         const returnType = this._emitExpression(member.returns);
         return `${this._name(member.name)}${parameters}: ${returnType}`;
@@ -145,19 +149,52 @@ export default class Emitter {
       return this._name(node.target);
     } else if (node.type === 'array') {
       return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
-    } else if (node.type === 'literal object') {
-      return _(node.members)
-        .map((member:types.Node) => {
-          if (member.type !== 'property') {
-            throw new Error(`Expected members of literal object to be properties; got ${member.type}`);
-          }
+    } else if (node.type === 'literal object' || node.type === 'interface') {
+      return _(this._collectMembers(node))
+        .map((member:types.PropertyNode) => {
           return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
         })
         .join(', ');
     } else {
-      console.log(node);
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
+  }
+
+  _collectMembers = (node:types.InterfaceNode|types.LiteralObjectNode):types.PropertyNode[] => {
+    let members:types.Node[] = [];
+    if (node.type === 'literal object') {
+      members = node.members;
+    } else {
+      const seenProps = new Set<types.SymbolName>();
+      let interfaceNode = node;
+
+      // loop through this interface and any super-interfaces
+      while (interfaceNode) {
+        for (const member of interfaceNode.members) {
+          if (seenProps.has(member.name)) continue;
+          seenProps.add(member.name);
+          members.push(member);
+        }
+        if (interfaceNode.inherits.length > 1) {
+          throw new Error(`No support for multiple inheritence: ${JSON.stringify(interfaceNode.inherits)}`);
+        } else if (interfaceNode.inherits.length === 1) {
+          const supertype = this.types[interfaceNode.inherits[0]];
+          if (supertype.type !== 'interface') {
+            throw new Error(`Expected supertype to be an interface node: ${supertype}`);
+          }
+          interfaceNode = supertype;
+        } else {
+          interfaceNode = null;
+        }
+      }
+    }
+
+    for (const member of members) {
+      if (member.type !== 'property') {
+        throw new Error(`Expected members to be properties; got ${member.type}`);
+      }
+    }
+    return members as types.PropertyNode[];
   }
 
   // Utility

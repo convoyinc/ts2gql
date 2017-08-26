@@ -134,7 +134,7 @@ export default class Collector {
       type: 'method',
       name: node.name.getText(),
       parameters,
-      returns: this._walkType(signature.getReturnType()),
+      returns: this._walkNode(node.type),
     };
   }
 
