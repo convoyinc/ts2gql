@@ -6,4 +6,4 @@ if (process.argv.length < 3) {
   process.exit(1);
 }
 
-require('../dist/src').emit(process.argv[2], process.argv.slice(3), process.stdout);
+require('../dist').emit(process.argv[2], process.argv.slice(3), process.stdout);
