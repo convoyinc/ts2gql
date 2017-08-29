@@ -211,8 +211,8 @@ export default class Emitter {
   }
 
   _indent(content:string|string[]):string {
-    if (!_.isArray(content)) content = content.split('\n');
-    return content.map(s => `  ${s}`).join('\n');
+    if (!_.isArray(content)) content = (content as string).split('\n');
+    return (content as string[]).map(s => `  ${s}`).join('\n');
   }
 
   _transitiveInterfaces(node:types.InterfaceNode):types.InterfaceNode[] {

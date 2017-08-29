@@ -1,4 +1,3 @@
-/Users/RylanH/Desktop/convoy/ts2gql/test/graphql/getPosts.grapql
 fragment getPosts on Post {
   id
   title

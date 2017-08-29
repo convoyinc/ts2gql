@@ -2,11 +2,7 @@ import * as _ from 'lodash';
 import * as typescript from  'typescript';
 import * as path from 'path';
 import * as fs from 'fs';
-
-// TODO:
-// Create directory to file you are writing to
-// Convert Namespace.Type to appropriate name of Namespace_Type
-// Move require to the fragment call
+import * as mkdirp from 'mkdirp';
 
 export function generateFragments(rootPath:string) {
   rootPath = path.resolve(rootPath);
@@ -30,6 +26,7 @@ export function generateFragments(rootPath:string) {
     file.calls.forEach(call => {
       const gqlPath = path.resolve(file.filePath, call.relativePath);
       const fileName = path.basename(gqlPath, path.extname(gqlPath));
+      mkdirp.sync(path.dirname(gqlPath));
       const stream = fs.createWriteStream(gqlPath, { autoClose: false } as any);
       stream.write(`fragment ${fileName} on ${call.baseName} {\n`);
       emitFields(call.properties, stream);
@@ -104,22 +101,12 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
     if (base.kind !== typescript.SyntaxKind.TypeReference) {
       throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)): TFragmentBase must be a TypeReference');
     }
-    const argument = call.arguments[0];
-    if (argument.kind !== typescript.SyntaxKind.CallExpression) {
-      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)): First argument must be a require call');
-    }
-    const requireCall = argument as typescript.CallExpression;
-    if (requireCall.arguments.length !== 1) {
-      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)): Require call must have 1 argument');
-    }
-    const gqlToken = requireCall.arguments[0];
-    if (gqlToken.kind !== typescript.SyntaxKind.StringLiteral) {
-      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)): Require call argument must be a string literal');
-    }
+    const gqlToken = call.arguments[0];
     const relativePath = (gqlToken as typescript.StringLiteral).text;
 
     const properties = collectProperties(data, checker);
-    const baseName = ((base as typescript.TypeReferenceNode).typeName as typescript.Identifier).text;
+    const baseNameRaw = ((base as typescript.TypeReferenceNode).typeName as typescript.Identifier).text;
+    const baseName = baseNameRaw.replace(/\W/g, '_');
 
     calls.push({
       properties,
@@ -156,6 +143,6 @@ function collectProperties(typeNode:typescript.TypeNode, checker:typescript.Type
   return fields;
 }
 
-export function fragment<TFragment extends Partial<TFragmentBase>, TFragmentBase>(document:any) {
-  return document;
+export function fragment<TFragment extends Partial<TFragmentBase>, TFragmentBase>(filepath:string) {
+  return require(filepath);
 }

@@ -29,7 +29,7 @@ type PostProps =
 const query = `
   query getPosts() {
     posts() {
-      ...${fragment<PostProps, Post>(require('../graphql/getPosts.graphql'))}
+      ...${fragment<PostProps, Post>('../graphql/getPosts.graphql')}
     }
   }
 `;
