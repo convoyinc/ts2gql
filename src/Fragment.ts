@@ -4,14 +4,9 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // TODO:
-// Use config to find calls to @convoy/ts2gql not ../src
-//    or better yet use the symbol itself
-// Log that 'import * as ts2gql from ...' is not supported
-//    or actually suppor it
 // Create directory to file you are writing to
 // Convert Namespace.Type to appropriate name of Namespace_Type
-// Verify that interface adheres to being a partial of the interface its on
-//    or does GraphQL do that for us?
+// Move require to the fragment call
 
 export function generateFragments(rootPath:string) {
   rootPath = path.resolve(rootPath);
@@ -19,9 +14,16 @@ export function generateFragments(rootPath:string) {
   const files = program.getSourceFiles();
   const checker = program.getTypeChecker();
 
+  // Get the declaration of the fragment function contained in this file
+  const fragmentDeclaration = getFragmentDeclaration(files);
+
+  if (!fragmentDeclaration) {
+    throw new Error(`ts2gql.fragments is not imported and used anywhere in this program`);
+  }
+
   const calls = files.map(file => ({
     filePath: file.fileName,
-    calls: collectFromFile(file, checker, rootPath),
+    calls: collectFragmentCalls(file, checker, fragmentDeclaration),
   }));
 
   calls.forEach(file => {
@@ -37,6 +39,19 @@ export function generateFragments(rootPath:string) {
   });
 }
 
+function getFragmentDeclaration(files:typescript.SourceFile[]) {
+  let fragmentDeclaration:typescript.FunctionDeclaration|null = null;
+  const thisTypeFile = files.find(f => f.fileName === `${__filename.substr(0, __filename.length - 3)}.d.ts`);
+  thisTypeFile.forEachChild(child => {
+    if (child.kind !== typescript.SyntaxKind.FunctionDeclaration) return;
+    const declaration = child as typescript.FunctionDeclaration;
+    if (declaration.name.text === 'fragment') {
+      fragmentDeclaration = declaration;
+    }
+  });
+  return fragmentDeclaration;
+}
+
 function emitFields(fields:Field[], stream:NodeJS.WritableStream, indent = '  ') {
   fields.forEach(field => {
     if (field.subfields) {
@@ -49,46 +64,31 @@ function emitFields(fields:Field[], stream:NodeJS.WritableStream, indent = '  ')
   });
 }
 
-/**
- * Finds all calls to ts2gql fragment() in a given file.
- */
-function collectFromFile(file:typescript.SourceFile, checker:typescript.TypeChecker, rootPath:string) {
-  // Find the actual fragment function call imported from ts2gql
-  let fragmentIdentifier:typescript.Identifier;
-  typescript.forEachChild(file, child => {
-    if (child.kind === typescript.SyntaxKind.ImportDeclaration) {
-      const declaration = child as typescript.ImportDeclaration;
-
-      if ((declaration.moduleSpecifier as typescript.StringLiteral).text === '../src') {
-        const bindings = (declaration.importClause as typescript.ImportClause).namedBindings as typescript.NamedImports;
-        const elements = bindings.elements as typescript.ImportSpecifier[];
-        const importSpecifier = _.find(elements, element => (element.propertyName || element.name).text === 'fragment');
-        if (!importSpecifier) return null;
-        fragmentIdentifier = importSpecifier.name;
-      }
-    }
-  });
-  if (!fragmentIdentifier) return [];
-  return collectFragmentCalls(file, checker, fragmentIdentifier.text);
-}
-
 interface FragmentCall {
   properties:Field[];
   baseName:string;
   relativePath:string;
 }
 
-function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeChecker, fragmentCallIdentifier:string) {
+function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeChecker, fragmentDeclaration:typescript.FunctionDeclaration) {
+
   let calls:FragmentCall[] = [];
   typescript.forEachChild(node, child => {
-    const childCalls = collectFragmentCalls(child, checker, fragmentCallIdentifier);
+    const childCalls = collectFragmentCalls(child, checker, fragmentDeclaration);
     if (childCalls) {
       calls = calls.concat(childCalls);
     }
     if (child.kind !== typescript.SyntaxKind.CallExpression) return null;
     const call = child as typescript.CallExpression;
 
-    if ((call.expression as typescript.Identifier).text !== fragmentCallIdentifier) return null;
+    const symbol = checker.getSymbolAtLocation(call.expression);
+
+    if (!symbol) return null;
+
+    const type = checker.getTypeOfSymbolAtLocation(symbol, call.expression);
+
+    if (type.symbol.valueDeclaration !== fragmentDeclaration) return null;
+
     if (call.typeArguments.length !== 2) {
       throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)) should have two type arguments');
     }
@@ -156,6 +156,6 @@ function collectProperties(typeNode:typescript.TypeNode, checker:typescript.Type
   return fields;
 }
 
-export function fragment<TFragment, TFragmentBase>(document:any) {
+export function fragment<TFragment extends Partial<TFragmentBase>, TFragmentBase>(document:any) {
   return document;
 }

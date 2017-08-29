@@ -1,4 +1,4 @@
-import { fragment } from '../src';
+import { fragment } from '../dist';
 import { Post, User } from './input';
 import 'graphql-tag';
 
