@@ -9,7 +9,7 @@ export default class Emitter {
   renames:{[key:string]:string} = {};
 
   constructor(typeMap:types.TypeMap) {
-    this.types = <types.TypeMap>_.omitBy(typeMap, (node, name) => this._preprocessNode(node, name));
+    this.types = <types.TypeMap>_.omitBy(typeMap, (node, name) => this._preprocessNode(node, name, typeMap));
   }
 
   emitAll(stream:NodeJS.WritableStream) {
@@ -33,9 +33,9 @@ export default class Emitter {
 
   // Preprocessing
 
-  _preprocessNode(node:types.Node, name:types.SymbolName):boolean {
+  _preprocessNode(node:types.Node, name:types.SymbolName, typeMap:types.TypeMap):boolean {
     if (node.type === 'alias' && node.target.type === 'reference') {
-      const referencedNode = this.types[node.target.target];
+      const referencedNode = typeMap[node.target.target];
       if (this._isPrimitive(referencedNode) || referencedNode.type === 'enum') {
         this.renames[name] = node.target.target;
         return true;

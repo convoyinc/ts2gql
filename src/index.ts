@@ -58,6 +58,5 @@ export function emit(schemaRootPath:string, rootNodeNames:string[], stream:NodeJ
 }
 
 function isNodeExported(node:typescript.Node):boolean {
-  return (node.flags & typescript.NodeFlags.ExportContext) !== 0
-    || (node.parent && node.parent.kind === typescript.SyntaxKind.SourceFile);
+  return node.modifiers && node.modifiers.some(m => m.kind === typescript.SyntaxKind.ExportKeyword);
 }
