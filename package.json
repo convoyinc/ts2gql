@@ -22,7 +22,8 @@
     "test:style": "./scripts/test:style"
   },
   "bin": {
-    "ts2gql": "./bin/ts2gql"
+    "ts2gql": "./bin/ts2gql",
+    "ts2gqlfragment": "./bin/ts2gqlfragment"
   },
   "dependencies": {
     "doctrine": "^1.2.2",

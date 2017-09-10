@@ -6,7 +6,9 @@ import * as mkdirp from 'mkdirp';
 
 export function generateFragments(rootPath:string) {
   rootPath = path.resolve(rootPath);
-  const program = typescript.createProgram([rootPath], {});
+  const program = typescript.createProgram([rootPath], {
+    jsx: typescript.JsxEmit.React,
+  });
   const files = program.getSourceFiles();
   const checker = program.getTypeChecker();
 
@@ -39,6 +41,9 @@ export function generateFragments(rootPath:string) {
 function getFragmentDeclaration(files:typescript.SourceFile[]) {
   let fragmentDeclaration:typescript.FunctionDeclaration|null = null;
   const thisTypeFile = files.find(f => f.fileName === `${__filename.substr(0, __filename.length - 3)}.d.ts`);
+  if (!thisTypeFile) {
+    throw new Error(`ts2gqlfragment is not imported in the project`);
+  }
   thisTypeFile.forEachChild(child => {
     if (child.kind !== typescript.SyntaxKind.FunctionDeclaration) return;
     const declaration = child as typescript.FunctionDeclaration;
@@ -84,13 +89,13 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
 
     const type = checker.getTypeOfSymbolAtLocation(symbol, call.expression);
 
-    if (type.symbol.valueDeclaration !== fragmentDeclaration) return null;
+    if (!type.symbol || type.symbol.valueDeclaration !== fragmentDeclaration) return null;
 
-    if (call.typeArguments.length !== 2) {
-      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)) should have two type arguments');
+    if (!call.typeArguments || call.typeArguments.length !== 2) {
+      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(graphQLFilePath) should have two type arguments');
     }
     if (call.arguments.length !== 1) {
-      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)): Must have one argument');
+      throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(graphQLFilePath): Must have one argument');
     }
 
     const data = call.typeArguments[0];
@@ -104,7 +109,8 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
     const gqlToken = call.arguments[0];
     const relativePath = (gqlToken as typescript.StringLiteral).text;
 
-    const properties = collectProperties(data, checker);
+    const propertyType = checker.getTypeFromTypeNode(data);
+    const properties = collectProperties(propertyType, checker, data);
     const baseNameRaw = ((base as typescript.TypeReferenceNode).typeName as typescript.Identifier).text;
     const baseName = baseNameRaw.replace(/\W/g, '_');
 
@@ -122,22 +128,23 @@ interface Field {
   subfields:Field[];
 }
 
-function collectProperties(typeNode:typescript.TypeNode, checker:typescript.TypeChecker) {
+function collectProperties(type:typescript.Type, checker:typescript.TypeChecker, typeNode:typescript.TypeNode) {
   const fields:Field[] = [];
-  const type = checker.getTypeFromTypeNode(typeNode);
 
   // For unstructured types (like string, number, etc) we don't need to loop through their properties
   if (!(type.flags & typescript.TypeFlags.StructuredType)) return null;
+
+  // A bit strange, but a boolean is a union of true and false therefore a StructuredType
+  if (type.flags & typescript.TypeFlags.Boolean) return null;
+
+  // For Date's we don't need to loop through their properties
+  if (type.symbol && type.symbol.name === 'Date') return null;
+
   const properties = checker.getPropertiesOfType(type);
 
   properties.forEach(symbol => {
-    let subfields = null;
-    if (symbol.valueDeclaration) {
-      if (symbol.valueDeclaration.kind === typescript.SyntaxKind.PropertySignature) {
-        const propertySignature = symbol.valueDeclaration as typescript.PropertySignature;
-        subfields = collectProperties(propertySignature.type, checker);
-      }
-    }
+    const propertyType = checker.getTypeOfSymbolAtLocation(symbol, typeNode);
+    const subfields = collectProperties(propertyType, checker, typeNode);
     fields.push({ name: symbol.name, subfields });
   });
   return fields;
