@@ -131,6 +131,12 @@ interface Field {
 function collectProperties(type:typescript.Type, checker:typescript.TypeChecker, typeNode:typescript.TypeNode) {
   const fields:Field[] = [];
 
+  // For Arrays we want to use the type of the array
+  if (type.symbol && type.symbol.name === 'Array') {
+    const arrayType = type as typescript.TypeReference;
+    type = arrayType.typeArguments[0];
+  }
+
   // For unstructured types (like string, number, etc) we don't need to loop through their properties
   if (!(type.flags & typescript.TypeFlags.StructuredType)) return null;
 
