@@ -160,17 +160,26 @@ export default class Collector {
   _walkEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
     return this._addType(node, () => {
       const values = node.members.map(m => {
-        if (!m.initializer) {
+        if (m.initializer) {
           /**
-           *  Enum's should look like this:
+           *  Enums with initializers should look like this:
            *    export enum Type {
            *      CREATED        = <any>'CREATED',
            *      ACCEPTED       = <any>'ACCEPTED',
            *    }
            */
-          throw new Error(`enum ${node.name.getText()} must have string values`);
+          return _.trim(_.last(m.initializer.getChildren()).getText(), "'");
+        } else {
+          /**
+           *  For Enums without initializers, emit the
+           *  EnumMember name as the value. Example:
+           *    export enum Type {
+           *      CREATED,
+           *      ACCEPTED,
+           *    }
+           */
+          return _.trim(m.name.getText(), "'");
         }
-        return _.trim(_.last(m.initializer.getChildren()).getText(), "'");
       });
       return {
         type: 'enum',
