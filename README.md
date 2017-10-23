@@ -1,5 +1,7 @@
 # ts2gql
 
+[![Greenkeeper badge](https://badges.greenkeeper.io/convoyinc/ts2gql.svg)](https://greenkeeper.io/)
+
 Walks a TypeScript type hierarchy and translates it into GraphQL's IDL.
 
 Usage: `ts2gql root/module.ts`
