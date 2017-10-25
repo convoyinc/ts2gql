@@ -1,5 +1,7 @@
 import * as doctrine from 'doctrine';
 
+export const SENTINEL_PROPERTY_NAME = '__ts2gqlDummy__';
+
 export type SymbolName = string;
 
 export interface ComplexNode {
