@@ -53,7 +53,12 @@ export default class Collector {
 
     let result:types.Node;
     if (node.kind === SyntaxKind.InterfaceDeclaration) {
-      result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
+      const interfaceNode = <typescript.InterfaceDeclaration>node;
+      if (this._isSentinelNode(interfaceNode)) {
+        // Nada.
+      } else {
+        result = this._walkInterfaceDeclaration(interfaceNode);
+      }
     } else if (node.kind === SyntaxKind.MethodSignature) {
       result = this._walkMethodSignature(<typescript.MethodSignature>node);
     } else if (node.kind === SyntaxKind.PropertySignature) {
@@ -90,6 +95,23 @@ export default class Collector {
       Object.assign(nodeReference, result);
     }
     return nodeReference;
+  }
+
+  /**
+   * Allow sentinel nodes to be declared like this:
+   * 
+   *   export interface SomeType {
+   *     __ts2gqlDummy__:any;
+   *   };
+   * 
+   * Sentinel nodes will be skipped over during gql generation.
+   * This allows types to specify that certain members should not
+   * be traversed (e.g. because they are external dependencies and
+   * will be specified elsewhere during schema traversal).
+   */
+  _isSentinelNode = (interfaceNode:typescript.InterfaceDeclaration):boolean => {
+    return interfaceNode.members.length === 1 &&
+           interfaceNode.members[0].name.getText() === types.SENTINEL_PROPERTY_NAME;
   }
 
   _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
