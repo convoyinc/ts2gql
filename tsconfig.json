@@ -9,9 +9,14 @@
     "module": "commonjs",
     "newLine": "LF",
     "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
     "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
     "outDir": "./dist/",
     "pretty": true,
+    "strictNullChecks": true,
+    "suppressImplicitAnyIndexErrors": true,
     "target": "es5"
   },
   "include": [
