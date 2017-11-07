@@ -1,80 +1,186 @@
 {
+  "rulesDirectory": [
+    "tslint-no-unused-expression-chai"
+  ],
+  // https://palantir.github.io/tslint/rules/
   "rules": {
-    "class-name": true,
-    "comment-format": [true,
-      "check-space"
+    // TypeScript Specific
+
+    // If the compiler is sure of the type of something, don't bother declaring
+    // the type of it.
+    "no-inferrable-types": true,
+
+    // /// <reference path= is long dead; use ES6 imports for type definitions.
+    "no-reference": true,
+
+    // Use `for (value of thing)` over index based iteration.  This isn't C.
+    "prefer-for-of": true,
+
+    // Any function that returns a `Promise` should be marked `async`.  This is
+    // helpful for readability, and also ensures that the function never throws
+    // an exception (and instead guarantees a rejection for all errors).
+    //
+    // TODO: https://github.com/palantir/tslint/issues/1603
+    // "promise-function-async": true,
+
+    // We're crazy and like compressed whitespace for type declarations.  It
+    // visually groups types with the variable they are annotating.
+    "typedef-whitespace": [true,
+      {
+        "call-signature": "nospace",
+        "index-signature": "nospace",
+        "parameter": "nospace",
+        "property-declaration": "nospace",
+        "variable-declaration": "nospace"
+      },
+      {
+        "call-signature": "onespace",
+        "index-signature": "onespace",
+        "parameter": "onespace",
+        "property-declaration": "onespace",
+        "variable-declaration": "onespace"
+      }
     ],
-    "eofline": true,
-    "indent": [true,
-      "spaces"
-    ],
+
+    // Functionality
+
+    // Don't use labels for evil.
     "label-position": true,
-    "label-undefined": true,
-    "max-line-length": 120,
-    "no-arg": true,
-    "no-conditional-assignment": true,
-    "no-consecutive-blank-lines": true,
+
+    // Use the logger configured by the project instead.
+    "no-console": [true, "log", "info", "warn", "error", "dir", "time", "timeEnd", "trace", "assert"],
+
+    // new String('hi') !== 'hi' because JavaScript hates you.
     "no-construct": true,
+
+    // Checking in statements that can block execution is generally bad.
     "no-debugger": true,
-    "no-duplicate-key": true,
-    "no-duplicate-variable": true,
-    "no-empty": true,
+
+    // So rare that you need it these days; and it's so very fraught with peril.
     "no-eval": true,
+
+    // Promises must be awaited (or then'd or caught) by default.
+    // When a promise should be kicked off and not awaited (rare),
+    // use void (e.g. `void promiseFn()`) to indicate this desire
+    // and opt out of this rule.
+    "no-floating-promises": true,
+
+    // Iterating over an array as if it were an object leads to all sorts of "fun".
+    // TODO: https://github.com/palantir/tslint/issues/1603
+    // "no-for-in-array": true,
+
+    // Shadowed variables can be pretty confusing.
     "no-shadowed-variable": true,
+
+    // 99% of the time it's a mistake when you use fall through.
     "no-switch-case-fall-through": true,
-    "no-trailing-whitespace": true,
-    "no-unreachable": true,
-    "no-unused-expression": true,
-    "no-unused-variable": [true,
-      {"ignore-pattern": "^_"}
-    ],
+
+    // Using control statements inside a finally block does crazy things.
+    "no-unsafe-finally": true,
+
+    // You probably forgot to call a method, or assign it to something.
+    // (Note - we use no-unused-expression-chai instead of no-unused-expression
+    // because it allows us to use chai statements like
+    // `expect(thing.do).to.be.ok;` without flagging them as violations.)
+    "no-unused-expression-chai": true,
+
+    // Hoisting is not really something we need to rely on.
     "no-var-keyword": true,
-    "one-line": [true,
-      "check-catch",
-      "check-else",
-      "check-finally",
-      "check-open-brace",
-      "check-whitespace"
-    ],
-    "quotemark": [true,
-      "single",
-      "avoid-escape"
-    ],
-    "semicolon": [true,
-      "always"
-    ],
-    "switch-default": true,
-    "trailing-comma": [true, {
-      "multiline": "always",
-      "singleline": "never"
-    }],
-    "triple-equals": [true,
-      "allow-null-check"
-    ],
-    "typedef-whitespace": [true, {
-      "call-signature": "nospace",
-      "index-signature": "nospace",
-      "parameter": "nospace",
-      "property-declaration": "nospace",
-      "variable-declaration": "nospace"
-    }, {
-      "call-signature": "nospace",
-      "index-signature": "nospace",
-      "parameter": "nospace",
-      "property-declaration": "nospace",
-      "variable-declaration": "nospace"
-    }],
-    "variable-name": [true,
-      "check-format",
-      "allow-leading-underscore",
-      "ban-keywords",
-      "allow-pascal-case"
-    ],
+
+    // Implicit type coercion on maths is typically a bug.
+    //
+    // TODO: https://github.com/palantir/tslint/issues/1603
+    // "restrict-plus-operands": true
+
+    // ¯\_(ツ)_/¯
+    "triple-equals": [true, "allow-null-check"],
+
+    // NaN !== NaN.
+    "use-isnan": true,
+
+    // Maintainability
+
+    // So many tools bitch about missing newlines at the end of the file.
+    "eofline": true,
+
+    // Spaces.  Two of them.
+    "indent": [true, "spaces"],
+
+    // Ideally: 80 characters for comments, 120 for code.
+    "max-line-length": [true, 120],
+
+    // Trailing whitespace clutters up diffs.
+    "no-trailing-whitespace": true,
+
+    // Use let as a hint to the reader that the value will change later.
+    "prefer-const": true,
+
+    // Enforcing trailing commas reduces noise in diffs and makes mass edits
+    // easier.
+    "trailing-comma": [true, {"multiline": "always", "singleline": "never"}],
+
+    // Style
+
+    // Always use `T[]` style syntax for array types.
+    "array-type": [true, "array"],
+
+    // CamelCaps class names.
+    "class-name": true,
+
+    // A space between // and your comment aids readability.
+    "comment-format": [true, "check-space"],
+
+    // Makes object construction a bit more consistent.
+    "new-parens": true,
+
+    // Always use `as T` style type assertions; because .tsx files won't let us
+    // have nice things.
+    "no-angle-bracket-type-assertion": true,
+
+    // NO.
+    "no-consecutive-blank-lines": [true, 1],
+
+    // Prefer `{ foo }` instead of `{ foo: foo }`.
+    "object-literal-shorthand": true,
+
+    // Opening and closing braces should be on the same line as statements.
+    //
+    //   if (true) {
+    //     …
+    //   } else {
+    //     …
+    //   }
+    //
+    "one-line": [true, "check-catch", "check-finally", "check-else", "check-open-brace", "check-whitespace"],
+
+    // Multi-variable declaratons tend to be very messy and hard to scan.
+    "one-variable-per-declaration": [true,  "ignore-for-loop"],
+
+    // Save yourself some pain, and avoid ianm@ going OCD on your ass in PRs.
+    //
+    // You will probably want to turn on tslint auto fixing for your editor.
+    // TODO: Until we can figure out a better way of auto fixing for everyone.
+    // "ordered-imports": [true, {"import-sources-order": "case-insensitive"}],
+
+    // We prefer single quotes.
+    // TODO: We want to allow both single and backticks, but not double.
+    // "quotemark": [true, "single", "avoid-escape"],
+
+    // Why? Not sure these days, since "never" will still enforce semicolons in
+    // ambiguous cases, but it's what we do.
+    "semicolon": [true, "always"],
+
+    // Use camelCase for variable names.
+    "variable-name": [true, "check-format", "allow-leading-underscore", "ban-keywords", "allow-pascal-case"],
+
+    // Consistent whitespace around all the things!
     "whitespace": [true,
       "check-branch",
       "check-decl",
       "check-operator",
-      "check-separator"
+      "check-module",
+      "check-separator",
+      "check-typecast"
     ]
   }
 }
