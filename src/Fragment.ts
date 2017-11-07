@@ -40,6 +40,8 @@ export function generateFragments(rootPath:string) {
 
 function getFragmentDeclaration(files:typescript.SourceFile[]) {
   let fragmentDeclaration:typescript.FunctionDeclaration|null = null;
+  // Looks for this file's (src/Fragment.ts's) .d.ts file to see if the fragment function
+  // is called
   const thisTypeFile = files.find(f => f.fileName === `${__filename.substr(0, __filename.length - 3)}.d.ts`);
   if (!thisTypeFile) {
     throw new Error(`ts2gqlfragment is not imported in the project`);
@@ -89,6 +91,7 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
 
     const type = checker.getTypeOfSymbolAtLocation(symbol, call.expression);
 
+    // Short-circuit if a function call is not to ts2gql's fragment function
     if (!type.symbol || type.symbol.valueDeclaration !== fragmentDeclaration) return null;
 
     if (!call.typeArguments || call.typeArguments.length !== 2) {
@@ -107,6 +110,7 @@ function collectFragmentCalls(node:typescript.Node, checker:typescript.TypeCheck
       throw new Error('ts2gql.fragment<TFragment, TFragmentBase>(require(relGQLPath)): TFragmentBase must be a TypeReference');
     }
     const gqlToken = call.arguments[0];
+    console.log(gqlToken);
     const relativePath = (gqlToken as typescript.StringLiteral).text;
 
     const propertyType = checker.getTypeFromTypeNode(data);
