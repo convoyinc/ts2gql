@@ -7,12 +7,12 @@ export default class Emitter {
   renames:{[key:string]:string} = {};
 
   constructor(private types:types.TypeMap) {
-    this.types = <types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name));
+    this.types = <types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name!));
   }
 
   emitAll(stream:NodeJS.WritableStream) {
     stream.write('\n');
-    _.each(this.types, (node, name) => this.emitTopLevelNode(node, name, stream));
+    _.each(this.types, (node, name) => this.emitTopLevelNode(node, name!, stream));
   }
 
   emitTopLevelNode(node:types.Node, name:types.SymbolName, stream:NodeJS.WritableStream) {
@@ -166,7 +166,8 @@ export default class Emitter {
       members = node.members;
     } else {
       const seenProps = new Set<types.SymbolName>();
-      let interfaceNode = node;
+      let interfaceNode:types.InterfaceNode|null;
+      interfaceNode = node;
 
       // loop through this interface and any super-interfaces
       while (interfaceNode) {
@@ -178,7 +179,7 @@ export default class Emitter {
         if (interfaceNode.inherits.length > 1) {
           throw new Error(`No support for multiple inheritence: ${JSON.stringify(interfaceNode.inherits)}`);
         } else if (interfaceNode.inherits.length === 1) {
-          const supertype = this.types[interfaceNode.inherits[0]];
+          const supertype:types.Node = this.types[interfaceNode.inherits[0]];
           if (supertype.type !== 'interface') {
             throw new Error(`Expected supertype to be an interface node: ${supertype}`);
           }
@@ -226,7 +227,7 @@ export default class Emitter {
     return !!this._getDocTag(node, prefix);
   }
 
-  _getDocTag(node:types.ComplexNode, prefix:string):string {
+  _getDocTag(node:types.ComplexNode, prefix:string):string|null {
     if (!node.documentation) return null;
     for (const tag of node.documentation.tags) {
       if (tag.title !== 'graphql') continue;

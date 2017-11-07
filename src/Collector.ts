@@ -18,11 +18,11 @@ export default class Collector {
   private checker:typescript.TypeChecker;
   private nodeMap:Map<typescript.Node, types.Node> = new Map;
 
-  constructor(private program:typescript.Program) {
+  constructor(program:typescript.Program) {
     this.checker = program.getTypeChecker();
   }
 
-  addRootNode(node:typescript.Declaration):void {
+  addRootNode(node:typescript.InterfaceDeclaration):void {
     this._walkNode(node);
     const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
     simpleNode.concrete = true;
@@ -46,12 +46,12 @@ export default class Collector {
   _walkNode = (node:typescript.Node):types.Node => {
     // Reentrant node walking.
     if (this.nodeMap.has(node)) {
-      return this.nodeMap.get(node);
+      return this.nodeMap.get(node) as types.Node;
     }
     const nodeReference:types.Node = <types.Node>{};
     this.nodeMap.set(node, nodeReference);
 
-    let result:types.Node;
+    let result:types.Node|null = null;
     if (node.kind === SyntaxKind.InterfaceDeclaration) {
       result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
     } else if (node.kind === SyntaxKind.MethodSignature) {
@@ -93,7 +93,7 @@ export default class Collector {
   }
 
   _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
-    return symbol.getDeclarations().map(d => this._walkNode(d));
+    return symbol.getDeclarations()!.map(d => this._walkNode(d));
   }
 
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
@@ -125,16 +125,16 @@ export default class Collector {
   _walkMethodSignature(node:typescript.MethodSignature):types.Node {
     const signature = this.checker.getSignatureFromDeclaration(node);
     const parameters:types.TypeMap = {};
-    for (const parameter of signature.getParameters()) {
+    for (const parameter of signature!.getParameters()) {
       const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
-      parameters[parameter.getName()] = this._walkNode(parameterNode.type);
+      parameters[parameter.getName()] = this._walkNode(parameterNode.type!);
     }
 
     return {
       type: 'method',
       name: node.name.getText(),
       parameters,
-      returns: this._walkNode(node.type),
+      returns: this._walkNode(node.type!),
     };
   }
 
@@ -142,7 +142,7 @@ export default class Collector {
     return {
       type: 'property',
       name: node.name.getText(),
-      signature: this._walkNode(node.type),
+      signature: this._walkNode(node.type!),
     };
   }
 
@@ -212,12 +212,12 @@ export default class Collector {
   // Type Walking
 
   _walkType = (type:typescript.Type):types.Node => {
-    if (type.flags & TypeFlags.Reference) {
+    if (type.flags & TypeFlags.Object) {
       return this._walkTypeReference(<typescript.TypeReference>type);
-    } else if (type.flags & TypeFlags.Interface) {
+    } else if (type.flags & TypeFlags.BooleanLike) {
       return this._walkInterfaceType(<typescript.InterfaceType>type);
-    } else if (type.flags & TypeFlags.Anonymous) {
-      return this._walkNode(type.getSymbol().declarations[0]);
+    } else if (type.flags & TypeFlags.Index) {
+      return this._walkNode(type.getSymbol()!.declarations![0]);
     } else if (type.flags & TypeFlags.String) {
       return {type: 'string'};
     } else if (type.flags & TypeFlags.Number) {
@@ -226,16 +226,16 @@ export default class Collector {
       return {type: 'boolean'};
     } else {
       console.log(type);
-      console.log(type.getSymbol().declarations[0].getSourceFile().fileName);
+      console.log(type.getSymbol()!.declarations![0].getSourceFile().fileName);
       throw new Error(`Don't know how to handle type with flags: ${type.flags}`);
     }
   }
 
   _walkTypeReference(type:typescript.TypeReference):types.Node {
-    if (type.target && type.target.getSymbol().name === 'Array') {
+    if (type.target && type.target.getSymbol()!.name === 'Array') {
       return {
         type: 'array',
-        elements: type.typeArguments.map(this._walkType),
+        elements: type.typeArguments!.map(this._walkType),
       };
     } else {
       throw new Error('Non-array type references not yet implemented');
@@ -243,12 +243,12 @@ export default class Collector {
   }
 
   _walkInterfaceType(type:typescript.InterfaceType):types.Node {
-    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()));
+    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()!));
   }
 
   // Utility
 
-  _addType(node:typescript.Declaration, typeBuilder:() => types.Node):types.Node {
+  _addType(node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration, typeBuilder:() => types.Node):types.Node {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
@@ -258,7 +258,7 @@ export default class Collector {
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {
-    return this._expandSymbol(this.checker.getSymbolAtLocation(node));
+    return this._expandSymbol(this.checker.getSymbolAtLocation(node)!);
   }
 
   _nameForSymbol(symbol:typescript.Symbol):types.SymbolName {

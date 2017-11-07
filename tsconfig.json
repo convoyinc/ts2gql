@@ -23,7 +23,6 @@
     "src/*",
     "typings/*",
     "typings/custom/*",
-    "typings/globals/*",
     "typings/modules/*"
   ]
 }

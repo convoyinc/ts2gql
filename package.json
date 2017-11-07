@@ -43,7 +43,7 @@
     "sinon-chai": "^2.13.0",
     "tslint": "^3.13.0",
     "tslint-no-unused-expression-chai": "0.0.3",
-    "typescript": "2.0.10",
+    "typescript": "2.6.1",
     "typings": "^1.3.1"
   }
 }

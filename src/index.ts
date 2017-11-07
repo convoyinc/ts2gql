@@ -42,7 +42,7 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
     if (!documentation) return;
     const override = _.find(documentation.tags, t => t.title === 'graphql' && t.description.startsWith('override'));
     if (!override) return;
-    const overrideName = override.description.split(' ')[1] || name;
+    const overrideName = override.description.split(' ')[1] || name!;
     collector.mergeOverrides(node, overrideName);
   });
 
@@ -56,6 +56,5 @@ export function emit(schemaRootPath:string, rootNodeNames:string[], stream:NodeJ
 }
 
 function isNodeExported(node:typescript.Node):boolean {
-  return (node.flags & typescript.NodeFlags.Export) !== 0
-    || (node.parent && node.parent.kind === typescript.SyntaxKind.SourceFile);
+  return !!node.modifiers && node.modifiers.some(m => m.kind === typescript.SyntaxKind.ExportKeyword);
 }
