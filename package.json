@@ -14,12 +14,19 @@
     "bin/*"
   ],
   "scripts": {
-    "clean": "./scripts/clean",
-    "compile": "./scripts/compile",
-    "prepublish": "./scripts/prepublish",
-    "release": "./scripts/release",
-    "test": "./scripts/test",
-    "test:style": "./scripts/test:style"
+    "clean": "./scripts/clean.sh",
+    "compile": "./scripts/compile.sh",
+    "deps": "./scripts/deps.sh",
+    "dev": "./scripts/dev.sh",
+    "prepublish": "./scripts/prepublish.sh",
+    "release": "./scripts/release.sh",
+    "start": "./scripts/start.sh",
+    "test:compile": "./scripts/test:compile.sh",
+    "test:integration": "./scripts/test:integration.sh",
+    "test:style": "./scripts/test:style.sh",
+    "test:template-cleanup": "./scripts/test:template-cleanup.sh",
+    "test:unit": "./scripts/test:unit.sh",
+    "test": "./scripts/test.sh"
   },
   "bin": {
     "ts2gql": "./bin/ts2gql"
