@@ -1,22 +1,55 @@
+machine:
+  services:
+    - docker
+  node:
+    version: 6.2.2
+  environment:
+    DOCKER_CACHE_DIR: /home/ubuntu/docker_cache
+
 dependencies:
+  cache_directories:
+    - ~/.cache/yarn
   override:
+    - yarn config set registry https://registry.npmjs.org/
+    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
     - nvm install && nvm alias default $(cat .nvmrc)
-    - npm install
+    - yarn
 
 test:
+  # Rather than just running `npm test` (which would be Circle's default)
+  # we run explicit steps so that a build failure has a clearer source.
+  #
+  # Note that most tests are configured to run in parallel, so that you can get
+  # immediate gains by configuring # of containers via Circle.
   override:
-    - npm run compile
+    - yarn run test:compile
 
-    - npm run test:style:
+    - yarn run test:style:
         parallel: true
         files:
-          - src/**/*.ts
+          - src/**/*.{ts,tsx}
+          - test/**/*.{ts,tsx}
+
+    - yarn run test:unit:
+        parallel: true
+        files:
+          - test/unit/**/*.{ts,tsx}
+        environment:
+          MOCHA_FILE: "$CIRCLE_TEST_REPORTS/test:unit.xml"
+
+    - yarn run test:integration:
+        parallel: true
+        files:
+          - test/integration/**/*.{ts,tsx}
+        environment:
+          MOCHA_FILE: "$CIRCLE_TEST_REPORTS/test:integration.xml"
+
+    - yarn run test:template-cleanup
 
 deployment:
   deploy:
     branch: master
     commands:
-      - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
       - git config --global user.email "donvoy@convoy.com"
       - git config --global user.name "Don Voy"
       - npm run release
