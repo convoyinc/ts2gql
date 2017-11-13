@@ -2,7 +2,7 @@ machine:
   services:
     - docker
   node:
-    version: 6.2.2
+    version: 6.11.1
   environment:
     DOCKER_CACHE_DIR: /home/ubuntu/docker_cache
 
