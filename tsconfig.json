@@ -21,8 +21,6 @@
   },
   "include": [
     "src/*",
-    "typings/*",
-    "typings/custom/*",
-    "typings/modules/*"
+    "typings/*"
   ]
 }
