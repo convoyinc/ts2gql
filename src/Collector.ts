@@ -168,7 +168,7 @@ export default class Collector {
            *      ACCEPTED       = <any>'ACCEPTED',
            *    }
            */
-          return _.trim(_.last(m.initializer.getChildren()).getText(), "'");
+          return _.trim(_.last(m.initializer.getChildren())!.getText(), "'");
         } else {
           /**
            *  For Enums without initializers, emit the
