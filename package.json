@@ -16,7 +16,6 @@
   "scripts": {
     "clean": "./scripts/clean.sh",
     "compile": "./scripts/compile.sh",
-    "deps": "./scripts/deps.sh",
     "dev": "./scripts/dev.sh",
     "prepublish": "./scripts/prepublish.sh",
     "release": "./scripts/release.sh",
