@@ -10,7 +10,7 @@ if [[ "${CI}" == "" ]]; then
   )
 fi
 
-yarn run test:unit --coverage "${OPTIONS[@]}"
+npm run test:unit --coverage "${OPTIONS[@]}"
 
 if [[ "${CI}" == "" ]]; then
   open ./output/test:unit/index.html

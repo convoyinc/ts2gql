@@ -35,7 +35,7 @@ for option in "${OPTIONS_FLAGS[@]}"; do
   fi
 done
 
-yarn run compile
+npm run compile
 
 # For jest-junit
 export JEST_SUITE_NAME="test:unit"

@@ -3,5 +3,5 @@ set -e
 
 source ./scripts/include/node.sh
 
-yarn run clean
+npm run clean
 tsc "${@}"

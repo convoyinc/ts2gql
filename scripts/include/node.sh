@@ -27,18 +27,6 @@ if [[ "${CURRENT_NODE_VERSION}" != "${DESIRED_NODE_VERSION}" ]]; then
   fi
 fi
 
-# Note that VS Code gets a free pass
-if [[ ! "${npm_config_user_agent}" =~ yarn/ && "${VSCODE_PID}" == "" ]]; then
-  echo "Please use yarn to run scripts in this repository." 1>&2
-  exit 1
-fi
-
-export PATH=$(yarn bin):$PATH
-
-current_yarn_command() {
-  node -e "console.log(JSON.parse(process.env.npm_config_argv).cooked[0])"
-}
-
 write_package_key() {
   local KEY="${1}"
   local VALUE="${2}"

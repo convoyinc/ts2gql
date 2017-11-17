@@ -6,7 +6,7 @@ source ./scripts/include/node.sh
 PACKAGE_XY=$(node -e "console.log(JSON.parse(fs.readFileSync('package.json')).version.replace(/\.\d+$/, ''))")
 PACKAGE_VERSION="${PACKAGE_XY}.${CIRCLE_BUILD_NUM}"
 
-yarn run compile
+npm run compile
 
 echo "Releasing ${PACKAGE_VERSION}"
 write_package_key version "${PACKAGE_VERSION}"

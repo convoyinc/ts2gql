@@ -35,13 +35,11 @@ for option in "${OPTIONS_FLAGS[@]}"; do
   fi
 done
 
-yarn run compile
+npm run compile
 
 # For jest-junit
 export JEST_SUITE_NAME="test:integration"
 export JEST_JUNIT_OUTPUT=./output/test:integration/report.xml
-
-yarn deps
 
 set -x
 node "${NODE_OPTIONS[@]}" ./node_modules/.bin/jest "${OPTIONS[@]}" "${FILES[@]}"
