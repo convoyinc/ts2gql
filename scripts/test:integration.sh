@@ -41,5 +41,7 @@ npm run compile
 export JEST_SUITE_NAME="test:integration"
 export JEST_JUNIT_OUTPUT=./output/test:integration/report.xml
 
+npm run deps
+
 set -x
 node "${NODE_OPTIONS[@]}" ./node_modules/.bin/jest "${OPTIONS[@]}" "${FILES[@]}"
