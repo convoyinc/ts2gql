@@ -24,7 +24,6 @@
     "test:compile": "./scripts/test:compile.sh",
     "test:integration": "./scripts/test:integration.sh",
     "test:style": "./scripts/test:style.sh",
-    "test:template-cleanup": "./scripts/test:template-cleanup.sh",
     "test:unit": "./scripts/test:unit.sh",
     "test": "./scripts/test.sh"
   },
