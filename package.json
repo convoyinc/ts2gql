@@ -1,36 +1,56 @@
 {
   "name": "ts2gql",
-  "version": "1.0.1",
+  "version": "2.0.1",
   "description": "Converts a TypeScript type hierarchy into GraphQL's IDL.",
   "homepage": "https://github.com/convoyinc/ts2gql",
   "bugs": "https://github.com/convoyinc/ts2gql/issues",
   "license": "Apache-2.0",
   "repository": "convoyinc/ts2gql",
-  "main": "./dist/index.js",
-  "typings": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "typings": "./dist/src/index.d.ts",
   "files": [
-    "dist",
+    "dist/src",
     "*.md",
     "bin/*"
   ],
   "scripts": {
-    "clean": "./scripts/clean",
-    "compile": "./scripts/compile",
-    "prepublish": "./scripts/prepublish",
-    "release": "./scripts/release",
-    "test": "./scripts/test",
-    "test:style": "./scripts/test:style"
+    "clean": "./scripts/clean.sh",
+    "compile": "./scripts/compile.sh",
+    "prepublish": "./scripts/prepublish.sh",
+    "release": "./scripts/release.sh",
+    "start": "./scripts/start.sh",
+    "test:compile": "./scripts/test:compile.sh",
+    "test:integration": "./scripts/test:integration.sh",
+    "test:style": "./scripts/test:style.sh",
+    "test:unit": "./scripts/test:unit.sh",
+    "test": "./scripts/test.sh"
   },
   "bin": {
     "ts2gql": "./bin/ts2gql"
   },
   "dependencies": {
     "doctrine": "^1.2.2",
-    "lodash": "^4.0.0"
+    "lodash": "^4.17.4"
   },
   "devDependencies": {
-    "tslint": "^3.13.0",
-    "typescript": "2.0.10",
-    "typings": "^1.3.1"
+    "@types/chai": "3.5.2",
+    "@types/chai-as-promised": "0.0.30",
+    "@types/lodash": "4.14.85",
+    "@types/node": "8.5.1",
+    "@types/sinon": "2.3.4",
+    "@types/sinon-chai": "2.7.29",
+    "chai": "3.5.0",
+    "chai-as-promised": "6.0.0",
+    "chai-jest-diff": "nevir/chai-jest-diff#built-member-assertions",
+    "jest": "21.1.0",
+    "jest-junit": "3.0.0",
+    "sinon": "3.2.1",
+    "sinon-chai": "2.13.0",
+    "tslint": "5.8.0",
+    "tslint-no-unused-expression-chai": "0.0.3",
+    "typescript": "2.6.2"
+  },
+  "peerDependencies": {
+    "typescript": ">=2.0.9"
   }
 }

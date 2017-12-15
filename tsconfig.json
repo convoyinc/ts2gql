@@ -2,23 +2,31 @@
   "compilerOptions": {
     "charset": "utf-8",
     "declaration": true,
+    "downlevelIteration": true,
     "forceConsistentCasingInFileNames": true,
+    "inlineSourceMap": true,
     "lib": [
-      "es2015"
+      "es2015",
+      "scripthost"
     ],
     "module": "commonjs",
+    "moduleResolution": "node",
     "newLine": "LF",
     "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
     "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
     "outDir": "./dist/",
     "pretty": true,
+    "stripInternal": true,
+    "strictNullChecks": true,
+    "suppressImplicitAnyIndexErrors": true,
     "target": "es5"
   },
   "include": [
     "src/*",
-    "typings/*",
-    "typings/custom/*",
-    "typings/globals/*",
-    "typings/modules/*"
+    "test/**/*",
+    "typings/**/*"
   ]
 }
