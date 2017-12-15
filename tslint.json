@@ -34,11 +34,11 @@
         "variable-declaration": "nospace"
       },
       {
-        "call-signature": "onespace",
-        "index-signature": "onespace",
-        "parameter": "onespace",
-        "property-declaration": "onespace",
-        "variable-declaration": "onespace"
+        "call-signature": "nospace",
+        "index-signature": "nospace",
+        "parameter": "nospace",
+        "property-declaration": "nospace",
+        "variable-declaration": "nospace"
       }
     ],
 
@@ -48,7 +48,7 @@
     "label-position": true,
 
     // Use the logger configured by the project instead.
-    "no-console": [true, "log", "info", "warn", "error", "dir", "time", "timeEnd", "trace", "assert"],
+    "no-console": [true, "log", "info", "warn", "dir", "time", "timeEnd", "trace", "assert"],
 
     // new String('hi') !== 'hi' because JavaScript hates you.
     "no-construct": true,
@@ -133,10 +133,6 @@
     // Makes object construction a bit more consistent.
     "new-parens": true,
 
-    // Always use `as T` style type assertions; because .tsx files won't let us
-    // have nice things.
-    "no-angle-bracket-type-assertion": true,
-
     // NO.
     "no-consecutive-blank-lines": [true, 1],
 
@@ -179,8 +175,7 @@
       "check-decl",
       "check-operator",
       "check-module",
-      "check-separator",
-      "check-typecast"
+      "check-separator"
     ]
   }
 }
