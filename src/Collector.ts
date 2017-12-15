@@ -16,7 +16,7 @@ export default class Collector {
     Date: {type: 'alias', target: {type: 'string'}},
   };
   private checker:typescript.TypeChecker;
-  private nodeMap:Map<typescript.Node, types.Node> = new Map;
+  private nodeMap:Map<typescript.Node, types.Node> = new Map();
 
   constructor(program:typescript.Program) {
     this.checker = program.getTypeChecker();
@@ -81,8 +81,8 @@ export default class Collector {
     } else if (node.kind === SyntaxKind.VariableDeclaration) {
       // Nada.
     } else {
-      console.log(node);
-      console.log(node.getSourceFile().fileName);
+      console.error(node);
+      console.error(node.getSourceFile().fileName);
       throw new Error(`Don't know how to handle ${SyntaxKind[node.kind]} nodes`);
     }
 
@@ -225,8 +225,8 @@ export default class Collector {
     } else if (type.flags & TypeFlags.Boolean) {
       return {type: 'boolean'};
     } else {
-      console.log(type);
-      console.log(type.getSymbol()!.declarations![0].getSourceFile().fileName);
+      console.error(type);
+      console.error(type.getSymbol()!.declarations![0].getSourceFile().fileName);
       throw new Error(`Don't know how to handle type with flags: ${type.flags}`);
     }
   }
@@ -248,7 +248,10 @@ export default class Collector {
 
   // Utility
 
-  _addType(node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration, typeBuilder:() => types.Node):types.Node {
+  _addType(
+    node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration,
+    typeBuilder:() => types.Node,
+  ):types.Node {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
@@ -263,7 +266,7 @@ export default class Collector {
 
   _nameForSymbol(symbol:typescript.Symbol):types.SymbolName {
     symbol = this._expandSymbol(symbol);
-    let parts = [];
+    const parts = [];
     while (symbol) {
       parts.unshift(this.checker.symbolToString(symbol));
       symbol = symbol['parent'];

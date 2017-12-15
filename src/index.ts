@@ -49,9 +49,13 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
   return collector.types;
 }
 
-export function emit(schemaRootPath:string, rootNodeNames:string[], stream:NodeJS.WritableStream = process.stdout):void {
-  const types = load(schemaRootPath, rootNodeNames);
-  const emitter = new Emitter(types);
+export function emit(
+  schemaRootPath:string,
+  rootNodeNames:string[],
+  stream:NodeJS.WritableStream = process.stdout,
+):void {
+  const loadedTypes = load(schemaRootPath, rootNodeNames);
+  const emitter = new Emitter(loadedTypes);
   emitter.emitAll(stream);
 }
 
