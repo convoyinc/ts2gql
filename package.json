@@ -6,10 +6,10 @@
   "bugs": "https://github.com/convoyinc/ts2gql/issues",
   "license": "Apache-2.0",
   "repository": "convoyinc/ts2gql",
-  "main": "./dist/index.js",
-  "typings": "./dist/index.d.ts",
+  "main": "./dist/src/index.js",
+  "typings": "./dist/src/index.d.ts",
   "files": [
-    "dist",
+    "dist/src",
     "*.md",
     "bin/*"
   ],
