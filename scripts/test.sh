@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-./scripts/test:style
+npm run test:compile
+npm run test:style
+npm run test:unit
+npm run test:integration
