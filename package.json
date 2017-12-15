@@ -49,5 +49,8 @@
     "tslint": "5.8.0",
     "tslint-no-unused-expression-chai": "0.0.3",
     "typescript": "2.6.2"
+  },
+  "peerDependencies": {
+    "typescript": ">=2.0.9"
   }
 }
