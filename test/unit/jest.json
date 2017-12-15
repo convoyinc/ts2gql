@@ -1,17 +1,17 @@
 {
   "automock": false,
   "collectCoverageFrom": [
-    "src/**/*.js"
+    "dist/src/**/*.js"
   ],
   "coverageDirectory": "output/test:unit",
   "coverageReporters": ["lcovonly", "text"],
   "coveragePathIgnorePatterns": [
     "<rootDir>/node_modules/",
-    "<rootDir>/test/"
+    "<rootDir>/dist/test/"
   ],
   "mapCoverage": true,
   "rootDir": "../..",
-  "setupTestFrameworkScriptFile": "./test/env/unit.js",
-  "testMatch": ["<rootDir>/test/unit/**/*.js"],
+  "setupTestFrameworkScriptFile": "./dist/test/env/unit.js",
+  "testMatch": ["<rootDir>/dist/test/unit/**/*.js"],
   "testResultsProcessor": "./node_modules/jest-junit"
 }
