@@ -1,8 +1,25 @@
-# npm
-node_modules/
-npm-debug.log*
-
 # TypeScript
 /dist/
-/typings/*
-!/typings/custom/
+
+# MacOS
+**/.DS_Store
+
+# Node
+/node_modules/
+npm-debug.log*
+yarn.lock
+npm-shrinkwrap.json
+package-lock.json
+
+# Build Artifacts
+/output/
+*.d.ts
+*.js
+!/scripts/*.js
+
+# TypeScript
+!/typings/**/*.d.ts
+
+# Coverage
+.nyc_output/
+coverage/

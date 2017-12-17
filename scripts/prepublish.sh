@@ -7,4 +7,4 @@ if [[ "${NPM_COMMAND}" == "install" ]]; then
   exit 0
 fi
 
-./scripts/compile
+./scripts/compile.sh
