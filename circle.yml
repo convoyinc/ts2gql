@@ -16,9 +16,6 @@ test:
 
     - npm run test:style:
         parallel: true
-        files:
-          - src/**/*.{ts,tsx}
-          - test/**/*.{ts,tsx}
 
     - npm run test:unit:
         parallel: true
