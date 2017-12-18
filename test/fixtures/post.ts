@@ -1,6 +1,6 @@
-import { fragment } from '../dist';
-import { Post, User } from './input';
-import 'graphql-tag';
+import { fragment } from '../../dist/src';
+import { Post, User } from './post_types';
+import gql from 'graphql-tag';
 
 interface AuthorProps {
   author:Pick<User, 'name' | 'photo'>;
@@ -26,10 +26,13 @@ type PostProps =
     },
   };
 
-const query = `
+const query = gql`
   query getPosts() {
     posts() {
-      ...${fragment<PostProps, Post>('../graphql/getPosts.graphql')}
+      ...${fragment<PostProps, Post>('../../../test_output/getPosts.graphql')}
     }
   }
 `;
+
+// Pointless code to appease error TS6133: 'query' is declared but its value is never read.
+if (!query) process.exit();
