@@ -30,6 +30,6 @@
     "typings/**/*"
   ],
   "exclude": [
-    "test/fixtures/**/*"
+    "test/data/**/*"
   ]
 }

@@ -1,4 +1,4 @@
-import { fragment } from '../../dist/src';
+import { fragment } from '../../../dist/src';
 import { Post, User } from './post_types';
 import gql from 'graphql-tag';
 
@@ -29,7 +29,7 @@ type PostProps =
 const query = gql`
   query getPosts() {
     posts() {
-      ...${fragment<PostProps, Post>('../../../test_output/getPosts.graphql')}
+      ...${fragment<PostProps, Post>('./output.graphql')}
     }
   }
 `;

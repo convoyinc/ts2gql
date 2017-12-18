@@ -5,25 +5,13 @@ import { generateFragments } from '../../src';
 
 describe(`generateFragments`, () => {
 
-  it(`reads complex stuff`, async () => {
-    const program = '../../../test/fixtures/post.ts';
-    generateFragments(path.join(__dirname, program));
-    const fragmentFile = fs.readFileSync(path.join(__dirname, '../../../test_output/getPosts.graphql'), 'utf8');
+  it(`generates fragment with nested fields`, async () => {
+    const rootDir = path.join(__dirname, '../../../test/data/post');
 
-    expect(fragmentFile).to.be.equal(
-`fragment getPosts on Post {
-  id
-  title
-  postedAt
-  author {
-    name
-    photo
-  }
-  editor {
-    name
-  }
-}
-`);
+    generateFragments(path.join(rootDir, 'index.ts'));
+    const output = fs.readFileSync(path.join(rootDir, 'output.graphql'), 'utf8');
+    const expected = fs.readFileSync(path.join(rootDir, 'expected.graphql'), 'utf8');
+    expect(output).to.be.equal(expected);
   });
 
 });

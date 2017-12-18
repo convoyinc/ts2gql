@@ -25,7 +25,7 @@ export function generateFragments(rootPath:string) {
 
   calls.forEach(file => {
     file.calls.forEach(call => {
-      const gqlPath = path.resolve(file.filePath, call.relativePath);
+      const gqlPath = path.join(path.dirname(file.filePath), call.relativePath);
       const fileName = path.basename(gqlPath, path.extname(gqlPath));
       mkdirp.sync(path.dirname(gqlPath));
 

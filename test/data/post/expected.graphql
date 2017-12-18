@@ -1,4 +1,4 @@
-fragment getPosts on Post {
+fragment output on Post {
   id
   title
   postedAt
