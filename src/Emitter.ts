@@ -65,7 +65,7 @@ export default class Emitter {
   _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
     node.types.map(type => {
       if (type.type !== 'reference') {
-        throw new Error(`GraphQL unions require that all types are references.  Got a ${type.type}`);
+        throw new Error(`GraphQL unions require that all types are references. Got a ${type.type}`);
       }
     });
 
