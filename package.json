@@ -1,6 +1,6 @@
 {
   "name": "ts2gql",
-  "version": "2.0.1",
+  "version": "2.0.74",
   "description": "Converts a TypeScript type hierarchy into GraphQL's IDL.",
   "homepage": "https://github.com/convoyinc/ts2gql",
   "bugs": "https://github.com/convoyinc/ts2gql/issues",
