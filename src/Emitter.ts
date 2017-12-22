@@ -1,6 +1,7 @@
 import * as _ from 'lodash';
 
 import * as Types from './types';
+import { ReferenceNode } from './types';
 
 // tslint:disable-next-line
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
@@ -55,13 +56,26 @@ export default class Emitter {
     } else if (node.target.type === 'reference') {
       return `union ${this._name(name)} = ${this._name(node.target.target)}`;
     } else if (node.target.type === 'union') {
-      const nodeTypes = node.target.types.map(type => {
-        if (type.type !== 'reference') {
-          throw new Error(`GraphQL unions require that all types are references.  Got a ${type.type}`);
-        }
+      return this._emitUnion(node.target, name);
+    } else {
+      throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
+    }
+  }
+
+  _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
+    node.types.map(type => {
+      if (type.type !== 'reference') {
+        throw new Error(`GraphQL unions require that all types are references.  Got a ${type.type}`);
+      }
+    });
+
+    const firstChild = node.types[0] as ReferenceNode;
+    const firstChildType = this.types[firstChild.target];
+    if (firstChildType.type === 'enum') {
+      const nodeTypes = node.types.map((type:ReferenceNode) => {
         const subNode = this.types[type.target];
         if (subNode.type !== 'enum') {
-          throw new Error(`ts2gql currently does not support unions for type: ${subNode.type}`);
+          throw new Error(`ts2gql expected a union of only enums since first child is an enum. Got a ${type.type}`);
         }
         return subNode.values;
       });
@@ -69,8 +83,18 @@ export default class Emitter {
         type: 'enum',
         values: _.uniq(_.flatten(nodeTypes)),
       }, this._name(name));
+    } else if (firstChildType.type === 'interface') {
+      const nodeNames = node.types.map((type:ReferenceNode) => {
+        const subNode = this.types[type.target];
+        if (subNode.type !== 'interface') {
+          throw new Error(`ts2gql expected a union of only interfaces since first child is an interface. ` +
+            `Got a ${type.type}`);
+        }
+        return type.target;
+      });
+      return `union ${this._name(name)} = ${nodeNames.join(' | ')}`;
     } else {
-      throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
+      throw new Error(`ts2gql currently does not support unions for type: ${firstChildType.type}`);
     }
   }
 
