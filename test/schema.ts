@@ -24,6 +24,24 @@ export enum Size {
   'Small',
 }
 
+export enum Planet {
+  CHTHONIAN    = 'CHTHONIAN',
+  CIRCUMBINARY = 'CIRCUMBINARY',
+  PLUTOID      = 'PLUTOID',
+}
+
+export enum Cloud {
+  ALTOSTRATUS  = <any>'ALTOSTRATUS',
+  CIRROCUMULUS = <any>'CIRROCUMULUS',
+  CUMULONIMBUS = <any>'CUMULONIMBUS',
+}
+
+export enum Ordinal {
+  FIRST = 1,
+  SECOND,
+  THIRD,
+}
+
 export type UnionOfInterfaceTypes = Human | Droid | Starship;
 
 export type UnionOfEnumTypes = Color | Size;
@@ -40,6 +58,9 @@ export interface QueryRoot {
   unionOfInterfaceAndOtherTypes():UnionOfInterfaceAndOtherTypes[];
   unionOfEnumAndOtherTypes():UnionOfEnumAndOtherTypes[];
   unionOfNonReferenceTypes():UnionOfNonReferenceTypes[];
+  planetTypes():Planet;
+  cloudTypes():Cloud;
+  ordinalTypes():Ordinal;
 }
 
 export interface MutationRoot {

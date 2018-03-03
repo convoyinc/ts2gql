@@ -93,7 +93,7 @@ export default class Collector {
   }
 
   _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
-    return symbol.getDeclarations()!.map(d => this._walkNode(d));
+    return _.map(symbol.getDeclarations(), d => this._walkNode(d));
   }
 
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
@@ -160,18 +160,27 @@ export default class Collector {
   _walkEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
     return this._addType(node, () => {
       const values = node.members.map(m => {
-        if (m.initializer) {
+        // If the user provides an initializer, use the value of the initializer
+        // as the GQL enum value _unless_ the initializer is a numeric literal.
+        if (m.initializer && m.initializer.kind !== SyntaxKind.NumericLiteral) {
           /**
-           *  Enums with initializers should look like this:
+           *  Enums with initializers can look like:
+           *
            *    export enum Type {
-           *      CREATED        = <any>'CREATED',
-           *      ACCEPTED       = <any>'ACCEPTED',
+           *      CREATED  = <any>'CREATED',
+           *      ACCEPTED = <any>'ACCEPTED',
+           *    }
+           *
+           *    export enum Type {
+           *      CREATED  = 'CREATED',
+           *      ACCEPTED = 'ACCEPTED',
            *    }
            */
-          return _.trim(_.last(m.initializer.getChildren())!.getText(), "'");
+          const target = _.last(m.initializer.getChildren()) || m.initializer;
+          return _.trim(target.getText(), "'");
         } else {
           /**
-           *  For Enums without initializers, emit the
+           *  For Enums without initializers (or with numeric literal initializers), emit the
            *  EnumMember name as the value. Example:
            *    export enum Type {
            *      CREATED,
