@@ -1,7 +1,7 @@
 import Emitter from '../../src/Emitter';
 import * as types from '../../src/types';
 import * as ts2gql from '../../src/index';
-import { UnionNode, AliasNode } from '../../src/types';
+import { UnionNode, AliasNode, EnumNode } from '../../src/types';
 
 describe(`Emitter`, () => {
 
@@ -61,4 +61,41 @@ describe(`Emitter`, () => {
     });
   });
 
+  describe(`_emitEnum`, () => {
+    it(`emits GQL type enum for string enum`, () => {
+      const expected =
+`enum Planet {
+  CHTHONIAN
+  CIRCUMBINARY
+  PLUTOID
+}`;
+      const enumNode = loadedTypes['Planet'] as EnumNode;
+      const val = emitter._emitEnum(enumNode, 'Planet');
+      expect(val).to.eq(expected);
+    });
+
+    it(`emits GQL type enum for enum with 'any' typed initializers`, () => {
+      const expected =
+`enum Cloud {
+  ALTOSTRATUS
+  CIRROCUMULUS
+  CUMULONIMBUS
+}`;
+      const enumNode = loadedTypes['Cloud'] as EnumNode;
+      const val = emitter._emitEnum(enumNode, 'Cloud');
+      expect(val).to.eq(expected);
+    });
+
+    it(`emits GQL type enum for enum with numeric literal initializers`, () => {
+      const expected =
+`enum Ordinal {
+  FIRST
+  SECOND
+  THIRD
+}`;
+      const enumNode = loadedTypes['Ordinal'] as EnumNode;
+      const val = emitter._emitEnum(enumNode, 'Ordinal');
+      expect(val).to.eq(expected);
+    });
+  });
 });
