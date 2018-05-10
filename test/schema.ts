@@ -30,6 +30,13 @@ export enum Planet {
   PLUTOID      = 'PLUTOID',
 }
 
+export enum Seasons {
+  SPRING   = "SPRING",
+  SUMMER   = "SUMMER",
+  FALL     = "FALL",
+  WINTER   = "WINTER",
+}
+
 export enum Cloud {
   ALTOSTRATUS  = <any>'ALTOSTRATUS',
   CIRROCUMULUS = <any>'CIRROCUMULUS',
@@ -59,6 +66,7 @@ export interface QueryRoot {
   unionOfEnumAndOtherTypes():UnionOfEnumAndOtherTypes[];
   unionOfNonReferenceTypes():UnionOfNonReferenceTypes[];
   planetTypes():Planet;
+  seasonTypes():Seasons;
   cloudTypes():Cloud;
   ordinalTypes():Ordinal;
 }

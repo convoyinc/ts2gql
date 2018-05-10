@@ -175,9 +175,14 @@ export default class Collector {
            *      CREATED  = 'CREATED',
            *      ACCEPTED = 'ACCEPTED',
            *    }
+           *
+           *    export enum Type {
+           *      CREATED  = "CREATED",
+           *      ACCEPTED = "ACCEPTED",
+           *    }
            */
           const target = _.last(m.initializer.getChildren()) || m.initializer;
-          return _.trim(target.getText(), "'");
+          return _.trim(target.getText(), "'\"");
         } else {
           /**
            *  For Enums without initializers (or with numeric literal initializers), emit the
@@ -187,7 +192,7 @@ export default class Collector {
            *      ACCEPTED,
            *    }
            */
-          return _.trim(m.name.getText(), "'");
+          return _.trim(m.name.getText(), "'\"");
         }
       });
       return {
