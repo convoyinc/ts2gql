@@ -62,7 +62,7 @@ describe(`Emitter`, () => {
   });
 
   describe(`_emitEnum`, () => {
-    it(`emits GQL type enum for string enum`, () => {
+    it(`emits GQL type enum for string enum with single quotes`, () => {
       const expected =
 `enum Planet {
   CHTHONIAN
@@ -71,6 +71,19 @@ describe(`Emitter`, () => {
 }`;
       const enumNode = loadedTypes['Planet'] as EnumNode;
       const val = emitter._emitEnum(enumNode, 'Planet');
+      expect(val).to.eq(expected);
+    });
+
+    it(`emits GQL type enum for string enum with double quotes`, () => {
+      const expected =
+`enum Seasons {
+  SPRING
+  SUMMER
+  FALL
+  WINTER
+}`;
+      const enumNode = loadedTypes['Seasons'] as EnumNode;
+      const val = emitter._emitEnum(enumNode, 'Seasons');
       expect(val).to.eq(expected);
     });
 
