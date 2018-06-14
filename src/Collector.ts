@@ -54,6 +54,8 @@ export default class Collector {
     let result:types.Node|null = null;
     if (node.kind === SyntaxKind.InterfaceDeclaration) {
       result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
+    } else if (node.kind === SyntaxKind.ClassDeclaration) {
+      result = this._walkClassDeclaration(<typescript.ClassDeclaration>node);
     } else if (node.kind === SyntaxKind.MethodSignature) {
       result = this._walkMethodSignature(<typescript.MethodSignature>node);
     } else if (node.kind === SyntaxKind.PropertySignature) {
@@ -76,13 +78,19 @@ export default class Collector {
       result = {type: 'number'};
     } else if (node.kind === SyntaxKind.BooleanKeyword) {
       result = {type: 'boolean'};
+    } else if (node.kind === SyntaxKind.PropertyDeclaration) {
+      result = this._walkPropertySignature(<typescript.PropertySignature>node);
+    } else if (node.kind === SyntaxKind.IndexedAccessType) {
+      result = {type: 'string'};
+    } else if (node.kind === SyntaxKind.Constructor) {
+      // Nada.
     } else if (node.kind === SyntaxKind.ModuleDeclaration) {
+      // Nada.
+    } else if (node.kind === SyntaxKind.MethodDeclaration) {
       // Nada.
     } else if (node.kind === SyntaxKind.VariableDeclaration) {
       // Nada.
     } else {
-      console.error(node);
-      console.error(node.getSourceFile().fileName);
       throw new Error(`Don't know how to handle ${SyntaxKind[node.kind]} nodes`);
     }
 
@@ -94,6 +102,32 @@ export default class Collector {
 
   _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
     return _.map(symbol.getDeclarations(), d => this._walkNode(d));
+  }
+
+  _walkClassDeclaration(node:typescript.ClassDeclaration):types.Node {
+    // TODO: How can we determine for sure that this is the global date?
+    if (node.name!.text === 'Date') {
+      return {type: 'reference', target: 'Date'};
+    }
+  
+    return this._addType(node, () => {
+      const inherits = [];
+      if (node.heritageClauses) {
+        for (const clause of node.heritageClauses) {
+          for (const type of clause.types) {
+            const symbol = this._symbolForNode(type.expression);
+            this._walkSymbol(symbol);
+            inherits.push(this._nameForSymbol(symbol));
+          }
+        }
+      }
+  
+      return {
+        type: 'interface',
+        members: <types.NamedNode[]>node.members.map(this._walkNode),
+        inherits,
+      };
+    });
   }
 
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
@@ -263,10 +297,10 @@ export default class Collector {
   // Utility
 
   _addType(
-    node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration,
+    node:typescript.InterfaceDeclaration|typescript.ClassDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration,
     typeBuilder:() => types.Node,
   ):types.Node {
-    const name = this._nameForSymbol(this._symbolForNode(node.name));
+    const name = this._nameForSymbol(this._symbolForNode(node.name!));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
     (<types.ComplexNode>type).documentation = util.documentationForNode(node);

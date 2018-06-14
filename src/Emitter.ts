@@ -58,7 +58,7 @@ export default class Emitter {
     } else if (node.target.type === 'union') {
       return this._emitUnion(node.target, name);
     } else {
-      throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
+      throw new Error(`Can't serialize ${circularJSONStringify(node.target)} as an alias`);
     }
   }
 
@@ -105,6 +105,7 @@ export default class Emitter {
       .flatten()
       .uniqBy('name')
       .sortBy('name')
+      .reject(_.isEmpty)
       .value();
 
     // GraphQL can't handle empty types or interfaces, but we also don't want
@@ -123,9 +124,13 @@ export default class Emitter {
         if (_.size(member.parameters) > 1) {
           throw new Error(`Methods can have a maximum of 1 argument`);
         } else if (_.size(member.parameters) === 1) {
-          let argType = _.values(member.parameters)[0] as Types.Node;
+          const parameter = _.first(_.values(member.parameters));
+          let argType = parameter as Types.Node;
           if (argType.type === 'reference') {
             argType = this.types[argType.target];
+            if (argType.type === 'alias' && argType.target.type === 'union') {
+              return `${this._name(member.name)}(${this._name((parameter as any).target)})`;
+            }
           }
           parameters = `(${this._emitExpression(argType)})`;
         }
@@ -176,10 +181,12 @@ export default class Emitter {
       return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
     } else if (node.type === 'literal object' || node.type === 'interface') {
       return _(this._collectMembers(node))
-        .map((member:Types.PropertyNode) => {
+        .map((member: Types.PropertyNode) => {
           return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
         })
         .join(', ');
+    } else if (node.type === 'alias') {
+      throw new Error();
     } else {
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
@@ -261,4 +268,21 @@ export default class Emitter {
     return null;
   }
 
+}
+
+function circularJSONStringify(obj:any) {
+  const cache:any[] = [];
+  const result = JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (cache.indexOf(value) !== -1) {
+        // Circular reference found, discard key
+        return;
+      }
+      // Store value in our collection
+      cache.push(value);
+    }
+    return value;
+  }, 2);
+  cache.length = 0;
+  return result;
 }
