@@ -1,6 +1,3 @@
-# TypeScript
-/dist/
-
 # MacOS
 **/.DS_Store
 
@@ -13,8 +10,6 @@ package-lock.json
 
 # Build Artifacts
 /output/
-*.d.ts
-*.js
 !/scripts/*.js
 
 # TypeScript
