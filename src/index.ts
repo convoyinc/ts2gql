@@ -13,13 +13,13 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
   const schemaRoot = program.getSourceFile(schemaRootPath);
 
   const interfaces:{[key:string]:typescript.InterfaceDeclaration} = {};
-  typescript.forEachChild(schemaRoot, (node) => {
+  typescript.forEachChild(schemaRoot as any, (node:any) => {
     if (!isNodeExported(node)) return;
     if (node.kind === typescript.SyntaxKind.InterfaceDeclaration) {
       const interfaceNode = <typescript.InterfaceDeclaration>node;
       interfaces[interfaceNode.name.text] = interfaceNode;
 
-      const documentation = util.documentationForNode(interfaceNode, schemaRoot.text);
+      const documentation = util.documentationForNode(interfaceNode, schemaRoot!.text);
       if (documentation && _.find(documentation.tags, {title: 'graphql', description: 'schema'})) {
         rootNodeNames.push(interfaceNode.name.text);
       }
