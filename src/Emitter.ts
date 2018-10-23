@@ -63,6 +63,14 @@ export default class Emitter {
   }
 
   _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
+    if (node.types[0].type === 'string literal') {
+      const nodeValues = node.types.map((type:Types.StringLiteralNode) => type.value);
+      return this._emitEnum({
+        type: 'enum',
+        values: _.uniq(nodeValues),
+      }, this._name(name));
+    }
+
     node.types.map(type => {
       if (type.type !== 'reference') {
         throw new Error(`GraphQL unions require that all types are references. Got a ${type.type}`);
