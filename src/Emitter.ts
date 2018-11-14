@@ -63,7 +63,7 @@ export default class Emitter {
   }
 
   _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
-    if (node.types[0].type === 'string literal') {
+    if (_.every(node.types, entry => entry.type === 'string literal')) {
       const nodeValues = node.types.map((type:Types.StringLiteralNode) => type.value);
       return this._emitEnum({
         type: 'enum',
