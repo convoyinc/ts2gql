@@ -70,6 +70,11 @@ export default class Collector {
       result = this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
     } else if (node.kind === SyntaxKind.UnionType) {
       result = this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
+    } else if (node.kind === SyntaxKind.LiteralType) {
+      result = {
+        type: 'string literal',
+        value: _.trim((<typescript.LiteralTypeNode>node).literal.getText(), "'\""),
+      };
     } else if (node.kind === SyntaxKind.StringKeyword) {
       result = {type: 'string'};
     } else if (node.kind === SyntaxKind.NumberKeyword) {

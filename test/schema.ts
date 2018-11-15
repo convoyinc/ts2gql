@@ -49,6 +49,8 @@ export enum Ordinal {
   THIRD,
 }
 
+export type QuarkFlavor = "UP" | "DOWN" | "CHARM" | "STRANGE" | "TOP" | "BOTTOM";
+
 export type UnionOfInterfaceTypes = Human | Droid | Starship;
 
 export type UnionOfEnumTypes = Color | Size;
@@ -69,6 +71,7 @@ export interface QueryRoot {
   seasonTypes():Seasons;
   cloudTypes():Cloud;
   ordinalTypes():Ordinal;
+  quarkFlavorTypes():QuarkFlavor;
 }
 
 export interface MutationRoot {

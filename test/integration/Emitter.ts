@@ -36,6 +36,22 @@ describe(`Emitter`, () => {
       expect(val).to.eq(expected);
     });
 
+    it(`emits GQL type enum union for a union type of strings`, () => {
+      const expected =
+`enum QuarkFlavor {
+  UP
+  DOWN
+  CHARM
+  STRANGE
+  TOP
+  BOTTOM
+}`;
+      const aliasNode = loadedTypes['QuarkFlavor'] as AliasNode;
+      const unionNode = aliasNode.target as UnionNode;
+      const val = emitter._emitUnion(unionNode, 'QuarkFlavor');
+      expect(val).to.eq(expected);
+    });
+
     it(`throws error if union combines interfaces with other node types`, () => {
       const aliasNode = loadedTypes['UnionOfInterfaceAndOtherTypes'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;

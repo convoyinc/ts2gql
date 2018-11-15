@@ -56,6 +56,11 @@ export interface LiteralObjectNode {
   members:Node[];
 }
 
+export interface StringLiteralNode {
+  type:'string literal';
+  value:string;
+}
+
 export interface StringNode {
   type:'string';
 }
@@ -78,6 +83,7 @@ export type Node =
   EnumNode |
   UnionNode |
   LiteralObjectNode |
+  StringLiteralNode |
   StringNode |
   NumberNode |
   BooleanNode;
