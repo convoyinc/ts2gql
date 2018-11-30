@@ -73,6 +73,10 @@ export interface BooleanNode {
   type:'boolean';
 }
 
+export interface AnyNode {
+  type:'any';
+}
+
 export type Node =
   InterfaceNode |
   MethodNode |
@@ -86,7 +90,8 @@ export type Node =
   StringLiteralNode |
   StringNode |
   NumberNode |
-  BooleanNode;
+  BooleanNode |
+  AnyNode;
 
 export type NamedNode = MethodNode | PropertyNode;
 

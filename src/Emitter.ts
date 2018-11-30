@@ -239,7 +239,7 @@ export default class Emitter {
   }
 
   _isPrimitive(node:Types.Node):boolean {
-    return node.type === 'string' || node.type === 'number' || node.type === 'boolean';
+    return node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'any';
   }
 
   _indent(content:string|string[]):string {
