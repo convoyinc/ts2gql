@@ -81,6 +81,8 @@ export default class Collector {
       result = {type: 'number'};
     } else if (node.kind === SyntaxKind.BooleanKeyword) {
       result = {type: 'boolean'};
+    } else if (node.kind === SyntaxKind.AnyKeyword) {
+      result = { type: 'any' };
     } else if (node.kind === SyntaxKind.ModuleDeclaration) {
       // Nada.
     } else if (node.kind === SyntaxKind.VariableDeclaration) {
