@@ -61,6 +61,28 @@ export type UnionOfEnumAndOtherTypes = Color | UnionOfInterfaceTypes;
 
 export type UnionOfNonReferenceTypes = boolean | string;
 
+/** @deprecated */
+export interface DeprecatedNode {
+  field():string;
+}
+
+export interface HasDeprecatedMethod {
+  /** @deprecated */
+  doNotUse():string;
+}
+
+export interface HasDeprecatedProperty {
+  /** @deprecated Avoid This. */
+  doNotUse:string;
+}
+
+/** @deprecated */
+export enum HasDeprecatedEnumValue {
+  USE_ME,
+  /** @deprecated */
+  NOT_ME,
+}
+
 export interface QueryRoot {
   unionOfInterfaceTypes():UnionOfInterfaceTypes[];
   unionOfEnumTypes():UnionOfEnumTypes[];
@@ -72,6 +94,10 @@ export interface QueryRoot {
   cloudTypes():Cloud;
   ordinalTypes():Ordinal;
   quarkFlavorTypes():QuarkFlavor;
+  deprecatedNode():DeprecatedNode;
+  hasDeprecatedMethod():HasDeprecatedMethod;
+  hasDeprecatedProperty():HasDeprecatedProperty;
+  hasDeprecatedEnumValue():HasDeprecatedEnumValue;
 }
 
 export interface MutationRoot {
