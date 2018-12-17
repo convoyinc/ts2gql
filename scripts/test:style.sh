@@ -5,7 +5,7 @@ source ./scripts/include/node.sh
 
 FILES=("${@}")
 if [[ "${#FILES[@]}" = "0" ]]; then
-  FILES+=($(find scripts src test ! -name "*.d.ts" -and -name "*.ts" -or -name "*.tsx"))
+  FILES+=($(find scripts src test ! -name "*.d.ts" -not -path "test/data/*" -and -name "*.ts" -or -name "*.tsx"))
 fi
 
 OPTIONS=(

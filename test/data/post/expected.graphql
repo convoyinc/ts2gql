@@ -1,0 +1,12 @@
+fragment output on Post {
+  id
+  title
+  postedAt
+  author {
+    name
+    photo
+  }
+  editor {
+    name
+  }
+}

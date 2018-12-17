@@ -7,6 +7,8 @@ import * as util from './util';
 import Collector from './Collector';
 import Emitter from './Emitter';
 
+export { generateFragments, fragment } from './Fragment';
+
 export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMap {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});

@@ -9,7 +9,7 @@ export default class Emitter {
   renames:{[key:string]:string} = {};
 
   constructor(private types:Types.TypeMap) {
-    this.types = <Types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name!));
+    this.types = <Types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name!, types));
   }
 
   emitAll(stream:NodeJS.WritableStream) {
@@ -33,9 +33,9 @@ export default class Emitter {
 
   // Preprocessing
 
-  _preprocessNode(node:Types.Node, name:Types.SymbolName):boolean {
+  _preprocessNode(node:Types.Node, name:Types.SymbolName, typeMap:Types.TypeMap):boolean {
     if (node.type === 'alias' && node.target.type === 'reference') {
-      const referencedNode = this.types[node.target.target];
+      const referencedNode = typeMap[node.target.target];
       if (this._isPrimitive(referencedNode) || referencedNode.type === 'enum') {
         this.renames[name] = node.target.target;
         return true;
@@ -243,8 +243,8 @@ export default class Emitter {
   }
 
   _indent(content:string|string[]):string {
-    if (!_.isArray(content)) content = content.split('\n');
-    return content.map(s => `  ${s}`).join('\n');
+    if (!_.isArray(content)) content = (content as string).split('\n');
+    return (content as string[]).map(s => `  ${s}`).join('\n');
   }
 
   _transitiveInterfaces(node:Types.InterfaceNode):Types.InterfaceNode[] {

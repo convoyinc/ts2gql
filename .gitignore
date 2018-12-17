@@ -23,3 +23,6 @@ package-lock.json
 # Coverage
 .nyc_output/
 coverage/
+
+# Test Artifacts
+test/data/**/output.graphql

@@ -35,6 +35,7 @@ for option in "${OPTIONS_FLAGS[@]}"; do
   fi
 done
 
+npm run test:clean
 npm run compile
 
 # For jest-junit

@@ -19,6 +19,7 @@
     "prepublish": "./scripts/prepublish.sh",
     "release": "./scripts/release.sh",
     "start": "./scripts/start.sh",
+    "test:clean": "./scripts/test:clean.sh",
     "test:compile": "./scripts/test:compile.sh",
     "test:integration": "./scripts/test:integration.sh",
     "test:style": "./scripts/test:style.sh",
@@ -26,22 +27,27 @@
     "test": "./scripts/test.sh"
   },
   "bin": {
-    "ts2gql": "./bin/ts2gql"
+    "ts2gql": "./bin/ts2gql",
+    "ts2gqlfragment": "./bin/ts2gqlfragment"
   },
   "dependencies": {
     "doctrine": "^1.2.2",
-    "lodash": "^4.17.4"
+    "lodash": "^4.17.4",
+    "mkdirp": "^0.5.1"
   },
   "devDependencies": {
     "@types/chai": "3.5.2",
     "@types/chai-as-promised": "0.0.30",
     "@types/lodash": "4.14.85",
+    "@types/mkdirp": "^0.5.1",
     "@types/node": "8.5.1",
     "@types/sinon": "2.3.4",
     "@types/sinon-chai": "2.7.29",
     "chai": "3.5.0",
     "chai-as-promised": "6.0.0",
     "chai-jest-diff": "nevir/chai-jest-diff#built-member-assertions",
+    "graphql": "0.12.3",
+    "graphql-tag": "2.4.2",
     "jest": "21.1.0",
     "jest-junit": "3.0.0",
     "sinon": "3.2.1",
