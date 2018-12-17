@@ -66,18 +66,25 @@ export interface DeprecatedNode {
   field():string;
 }
 
-export interface HasDeprecatedMethod {
-  /** @deprecated */
-  doNotUse():string;
+export interface HasDeprecatedFields {
+  /**
+   * A bad method.
+   * @deprecated
+   */
+  badMethod():string;
+  /**
+   * And a bad property.
+   * @deprecated Avoid this.
+   */
+  badProperty:string;
 }
 
-export interface HasDeprecatedProperty {
-  /** @deprecated Avoid This. */
-  doNotUse:string;
-}
-
-/** @deprecated */
+/**
+ * Both this enum and one of its values are deprecated.
+ * @deprecated
+ */
 export enum HasDeprecatedEnumValue {
+  /** This is what you want. */
   USE_ME,
   /** @deprecated */
   NOT_ME,
@@ -95,8 +102,7 @@ export interface QueryRoot {
   ordinalTypes():Ordinal;
   quarkFlavorTypes():QuarkFlavor;
   deprecatedNode():DeprecatedNode;
-  hasDeprecatedMethod():HasDeprecatedMethod;
-  hasDeprecatedProperty():HasDeprecatedProperty;
+  hasDeprecatedFields():HasDeprecatedFields;
   hasDeprecatedEnumValue():HasDeprecatedEnumValue;
 }
 

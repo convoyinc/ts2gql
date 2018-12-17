@@ -90,6 +90,7 @@ export type Node =
   PropertyNode |
   AliasNode |
   EnumNode |
+  EnumValueNode |
   UnionNode |
   LiteralObjectNode |
   StringLiteralNode |

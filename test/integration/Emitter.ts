@@ -137,34 +137,36 @@ describe(`Emitter`, () => {
       expect(val).to.eq(expected);
     });
 
-    it(`emits deprecated directives for TypeScript methods`, () => {
+    it(`emits decorated fields`, () => {
       const expected =
-`type HasDeprecatedMethod {
-  doNotUse: String @deprecated
+`type HasDeprecatedFields {
+  """
+  A bad method.
+  """
+  badMethod: String @deprecated
+  """
+  And a bad property.
+  """
+  badProperty: String @deprecated(reason: "Avoid this.")
 }`;
-      const node = loadedTypes['HasDeprecatedMethod'] as InterfaceNode;
-      const val = emitter._emitInterface(node, 'HasDeprecatedMethod');
+      const node = loadedTypes['HasDeprecatedFields'] as InterfaceNode;
+      const val = emitter._emitInterface(node, 'HasDeprecatedFields');
+      console.log(val);
+      console.log(expected);
       expect(val).to.eq(expected);
     });
 
-    it(`emits deprecated directives for TypeScript properties`, () => {
+    it(`emits decorated enums and enum values`, () => {
       const expected =
-`type HasDeprecatedProperty {
-  doNotUse: String @deprecated(reason: "Avoid This.")
-}`;
-      const node = loadedTypes['HasDeprecatedProperty'] as InterfaceNode;
-      const val = emitter._emitInterface(node, 'HasDeprecatedProperty');
-      expect(val).to.eq(expected);
-    });
-
-    it(`emits deprecated directives for enum values`, () => {
-      const expected =
-`enum HasDeprecatedEnumValue @deprecated {
-  USE_ME
+`"""
+Both this enum and one of its values are deprecated.
+"""
+enum HasDeprecatedEnumValue @deprecated {
+  "This is what you want." USE_ME
   NOT_ME @deprecated
 }`;
       const node = loadedTypes['HasDeprecatedEnumValue'] as EnumNode;
-      const val = emitter._emitEnum(node, 'HasDeprecatedEnumValue');
+      const val = emitter._emitTopLevelNode(node, 'HasDeprecatedEnumValue');
       expect(val).to.eq(expected);
     });
 

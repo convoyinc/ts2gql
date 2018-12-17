@@ -19,17 +19,26 @@ export default class Emitter {
   }
 
   emitTopLevelNode(node:Types.Node, name:Types.SymbolName, stream:NodeJS.WritableStream) {
-    let content;
+    const content = this._emitTopLevelNode(node, name);
+    stream.write(`${content}\n\n`);
+  }
+
+  _emitTopLevelNode(node:Types.Node, name:Types.SymbolName) {
+    let content = '';
+    const description = this._getDescription(node);
+    if (description) {
+      content += this._blockString(description) + '\n';
+    }
     if (node.type === 'alias') {
-      content = this._emitAlias(node, name);
+      content += this._emitAlias(node, name);
     } else if (node.type === 'interface') {
-      content = this._emitInterface(node, name);
+      content += this._emitInterface(node, name);
     } else if (node.type === 'enum') {
-      content = this._emitEnum(node, name);
+      content += this._emitEnum(node, name);
     } else {
       throw new Error(`Don't know how to emit ${node.type} as a top level node`);
     }
-    stream.write(`${content}\n\n`);
+    return content;
   }
 
   // Preprocessing
@@ -130,7 +139,12 @@ export default class Emitter {
     }
 
     const properties = _.map(members, (member) => {
-      let result:string;
+      let result:string = '';
+      const description = this._getDescription(member);
+      if (description) {
+        result += this._blockString(description);
+        result += '\n';
+      }
       if (member.type === 'method') {
         let parameters = '';
         if (_.size(member.parameters) > 1) {
@@ -143,9 +157,9 @@ export default class Emitter {
           parameters = `(${this._emitExpression(argType)})`;
         }
         const returnType = this._emitExpression(member.returns);
-        result = `${this._name(member.name)}${parameters}: ${returnType}`;
+        result += `${this._name(member.name)}${parameters}: ${returnType}`;
       } else if (member.type === 'property') {
-        result = `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+        result += `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -177,7 +191,15 @@ export default class Emitter {
   }
 
   _emitEnumValue(node:Types.EnumValueNode):string {
-    return `${node.key}${this._emitDirectives(node)}`;
+    let result = '';
+    const description = this._getDescription(node);
+    if (description) {
+      result += this._stringValue(description);
+      result += ' ';
+    }
+    result += node.key;
+    result += this._emitDirectives(node);
+    return result;
   }
 
   _emitExpression = (node:Types.Node):string => {
@@ -270,12 +292,22 @@ export default class Emitter {
     return JSON.stringify(value);
   }
 
+  _blockString(value:string):string {
+    // TODO: Properly encode "block strings".
+    // See: https://facebook.github.io/graphql/draft/#sec-String-Value
+    const s = this._stringValue(value);
+    return '"""\n' + s.substr(1, s.length - 2) + '\n"""';
+  }
+
   _isPrimitive(node:Types.Node):boolean {
     return node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'any';
   }
 
   _indent(content:string|string[]):string {
-    if (!_.isArray(content)) content = content.split('\n');
+    if (!_.isArray(content)) {
+      content = [content];
+    }
+    content = _.flatMap(content, (s:string) => s.split('\n'));
     return content.map(s => `  ${s}`).join('\n');
   }
 
@@ -290,6 +322,12 @@ export default class Emitter {
 
   _hasDocTag(node:Types.ComplexNode, title:string, prefix = ''):boolean {
     return this._getDocTag(node, title, prefix) !== null;
+  }
+
+  _getDescription(node:Types.Node):string|null {
+    const complexNode = node as Types.ComplexNode;
+    if (!complexNode.documentation) return null;
+    return complexNode.documentation.description;
   }
 
   _getDocTag(node:Types.ComplexNode, title:string, prefix = ''):string|null {
