@@ -153,10 +153,11 @@ export default class Collector {
   }
 
   _walkPropertySignature(node:typescript.PropertySignature):types.Node {
+    const signature = this._walkNode(node.type!)
     return {
       type: 'property',
       name: node.name.getText(),
-      signature: this._walkNode(node.type!),
+      signature: (node.questionToken && signature.type === 'notnull' ) ? signature.node : signature,
     };
   }
 
