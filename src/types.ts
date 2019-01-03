@@ -77,6 +77,19 @@ export interface AnyNode {
   type:'any';
 }
 
+export interface NullNode {
+  type:'null';
+}
+
+export interface UndefinedNode {
+  type:'undefined';
+}
+
+export interface NotNullNode {
+  type:'notnull';
+  node:Node;
+}
+
 export type Node =
   InterfaceNode |
   MethodNode |
@@ -91,6 +104,9 @@ export type Node =
   StringNode |
   NumberNode |
   BooleanNode |
+  NullNode |
+  UndefinedNode |
+  NotNullNode |
   AnyNode;
 
 export type NamedNode = MethodNode | PropertyNode;
