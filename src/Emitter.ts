@@ -34,15 +34,21 @@ export default class Emitter {
   // Preprocessing
 
   _preprocessNode(node:Types.Node, name:Types.SymbolName):boolean {
+    const specialTags = ['ID', 'Int', 'Float'];
+
     if (node.type === 'alias' && node.target.type === 'reference') {
       const referencedNode = this.types[node.target.target];
       if (this._isPrimitive(referencedNode) || referencedNode.type === 'enum') {
         this.renames[name] = node.target.target;
         return true;
       }
-    } else if (node.type === 'alias' && this._hasDocTag(node, 'ID')) {
-      this.renames[name] = 'ID';
-      return true;
+    } else if (node.type === 'alias') {
+      for (const tag of specialTags) {
+        if (this._hasDocTag(node, tag)) {
+          this.renames[name] = tag;
+          return true;
+        }
+      }
     }
 
     return false;
