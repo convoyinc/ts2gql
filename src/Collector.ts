@@ -12,9 +12,7 @@ const TypeFlags = typescript.TypeFlags;
  * referenced types.
  */
 export default class Collector {
-  types:types.TypeMap = {
-    Date: {type: 'alias', target: {type: 'string'}},
-  };
+  types:types.TypeMap = {};
   private checker:typescript.TypeChecker;
   private nodeMap:Map<typescript.Node, types.Node> = new Map();
 
