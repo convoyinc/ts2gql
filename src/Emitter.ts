@@ -146,6 +146,11 @@ export default class Emitter {
         const returnType = this._emitExpression(member.returns);
         return `${this._name(member.name)}${parameters}: ${returnType}`;
       } else if (member.type === 'property') {
+        const propertySignature = member.signature;
+        // Properties of the schema declaration should not contain ! marks
+        if (this._getDocTag(node, 'schema') && propertySignature.type === 'notnull') {
+          member.signature = propertySignature.node;
+        }
         return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
@@ -178,6 +183,8 @@ export default class Emitter {
   _emitExpression = (node:Types.Node):string => {
     if (!node) {
       return '';
+    } else if (node.type === 'notnull') {
+      return `${this._emitExpression(node.node)}!`;
     } else if (node.type === 'string') {
       return 'String'; // TODO: ID annotation
     } else if (node.type === 'number') {
@@ -194,6 +201,21 @@ export default class Emitter {
           return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
         })
         .join(', ');
+    } else if (node.type === 'union') {
+      let nonNullTypes = node.types.filter(({type}) => type !== 'null' && type !== 'undefined');
+
+      // If there is any non null type in the union, remove the non-null property of each object of union
+      if (nonNullTypes.length !== node.types.length) {
+        nonNullTypes = nonNullTypes.map((nonNullNode) =>
+          (nonNullNode.type === 'notnull' ? nonNullNode.node : node),
+        );
+      }
+
+      if (nonNullTypes.length !== 1) {
+        throw new Error(`There's no support for union with non-null and non-undefined types.`);
+      }
+
+      return this._emitExpression(nonNullTypes[0]);
     } else {
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
