@@ -136,17 +136,25 @@ export default class Collector {
 
   _walkMethodSignature(node:typescript.MethodSignature):types.Node {
     const signature = this.checker.getSignatureFromDeclaration(node);
-    const parameters:types.TypeMap = {};
-    for (const parameter of signature!.getParameters()) {
-      const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
-      parameters[parameter.getName()] = this._walkNode(parameterNode.type!);
-    }
+    const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
 
     return {
       type: 'method',
       name: node.name.getText(),
       parameters,
       returns: this._walkNode(node.type!),
+    };
+  }
+
+  _walkMethodParams(params:typescript.Symbol[]):types.MethodParamsNode {
+    const argNodes:types.TypeMap = {};
+    for (const parameter of params) {
+      const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
+      argNodes[parameter.getName()] = this._walkNode(parameterNode.type!);
+    }
+    return {
+      type: 'method args',
+      args: argNodes,
     };
   }
 

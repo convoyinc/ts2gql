@@ -131,35 +131,22 @@ export default class Emitter {
       });
     }
 
+    // Schema definition has special treatment related to
+    if (this._hasDocTag(node, 'schema')) {
+      return this._emitSchemaDefinition(members);
+    }
+
     const properties = _.map(members, (member) => {
       if (member.type === 'method') {
-        let parameters = '';
-        if (_.size(member.parameters) > 1) {
-          throw new Error(`Methods can have a maximum of 1 argument`);
-        } else if (_.size(member.parameters) === 1) {
-          let argType = _.values(member.parameters)[0] as Types.Node;
-          if (argType.type === 'reference') {
-            argType = this.types[argType.target];
-          }
-          parameters = `(${this._emitExpression(argType)})`;
-        }
-        const returnType = this._emitExpression(member.returns);
-        return `${this._name(member.name)}${parameters}: ${returnType}`;
+        return this._emitInterfaceMethod(member);
       } else if (member.type === 'property') {
-        const propertySignature = member.signature;
-        // Properties of the schema declaration should not contain ! marks
-        if (this._getDocTag(node, 'schema') && propertySignature.type === 'notnull') {
-          member.signature = propertySignature.node;
-        }
         return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
     });
 
-    if (this._getDocTag(node, 'schema')) {
-      return `schema {\n${this._indent(properties)}\n}`;
-    } else if (this._getDocTag(node, 'input')) {
+    if (this._getDocTag(node, 'input')) {
       return `input ${this._name(name)} {\n${this._indent(properties)}\n}`;
     }
 
@@ -174,6 +161,25 @@ export default class Emitter {
     }
 
     return result;
+  }
+
+  _emitInterfaceMethod(member:Types.MethodNode):string {
+    const parameters = `(${this._emitMethodArgs(member.parameters)})`;
+    const returnType = this._emitExpression(member.returns);
+    return `${this._name(member.name)}${parameters}: ${returnType}`;
+  }
+
+  _emitMethodArgs(node:Types.MethodParamsNode):string {
+    const resolvedArgs = _.mapValues(node.args, (param:Types.Node) => {
+      if (param.type === 'reference') {
+        return this.types[param.target];
+      }
+      return param;
+    });
+
+    return _.map(resolvedArgs, (argValue:Types.Node, argName:string) => {
+      return `${this._name(argName)}: ${this._emitExpression(argValue)}`;
+    }).join(', ');
   }
 
   _emitEnum(node:Types.EnumNode, name:Types.SymbolName):string {
@@ -257,6 +263,22 @@ export default class Emitter {
       }
     }
     return members as Types.PropertyNode[];
+  }
+
+  _emitSchemaDefinition(members:Types.Node[]):string {
+    const properties = _.map(members, (member) => {
+      if (member.type !== 'property') {
+        throw new Error(`Can't serialize ${member.type} as a property of an schema definition`);
+      }
+      const propertySignature = member.signature;
+        // Properties of the schema declaration should not contain ! marks
+        if (propertySignature.type === 'notnull') {
+          member.signature = propertySignature.node;
+        }
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+    });
+
+    return `schema {\n${this._indent(properties)}\n}`;
   }
 
   // Utility
