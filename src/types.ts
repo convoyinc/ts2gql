@@ -16,8 +16,13 @@ export interface InterfaceNode extends ComplexNode {
 export interface MethodNode extends ComplexNode {
   type:'method';
   name:string;
-  parameters:{[key:string]:Node};
+  parameters:MethodParamsNode;
   returns:Node;
+}
+
+export interface MethodParamsNode extends ComplexNode {
+  type:'method args';
+  args:{[key:string]:Node};
 }
 
 export interface ArrayNode extends ComplexNode {
