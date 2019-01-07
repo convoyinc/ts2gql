@@ -65,8 +65,8 @@ export default class Collector {
     } else if (node.kind === SyntaxKind.TypeLiteral) {
       result = this._walkTypeLiteralNode(<typescript.TypeLiteralNode>node);
     } else if (node.kind === SyntaxKind.ParenthesizedType) {
-      const parenthesizedNode = node as typescript.ParenthesizedTypeNode
-      result = this._walkNode(parenthesizedNode.type)
+      const parenthesizedNode = node as typescript.ParenthesizedTypeNode;
+      result = this._walkNode(parenthesizedNode.type);
     } else if (node.kind === SyntaxKind.ArrayType) {
       result = this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
     } else if (node.kind === SyntaxKind.UnionType) {
@@ -159,7 +159,7 @@ export default class Collector {
   }
 
   _walkPropertySignature(node:typescript.PropertySignature):types.Node {
-    const signature = this._walkNode(node.type!)
+    const signature = this._walkNode(node.type!);
     return {
       type: 'property',
       name: node.name.getText(),
@@ -235,7 +235,7 @@ export default class Collector {
       type: 'notnull',
       node: {
         type: 'array',
-        elements: [this._walkNode(node.elementType)]
+        elements: [this._walkNode(node.elementType)],
       }
     };
   }

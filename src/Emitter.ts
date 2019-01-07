@@ -131,7 +131,7 @@ export default class Emitter {
       });
     }
 
-    // Schema definition has special treatment related to
+    // Schema definition has special treatment on non nullable properties
     if (this._hasDocTag(node, 'schema')) {
       return this._emitSchemaDefinition(members);
     }
