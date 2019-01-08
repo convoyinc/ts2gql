@@ -73,21 +73,21 @@ export default class Collector {
       result = this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
     } else if (node.kind === SyntaxKind.LiteralType) {
       result = {
-        type: 'string literal',
+        type: types.NodeType.STRING_LITERAL,
         value: _.trim((<typescript.LiteralTypeNode>node).literal.getText(), "'\""),
       };
     } else if (node.kind === SyntaxKind.StringKeyword) {
-      result = {type: 'notnull', node: {type: 'string'}};
+      result = {type: types.NodeType.NOT_NULL, node: {type: types.NodeType.STRING}};
     } else if (node.kind === SyntaxKind.NumberKeyword) {
-      result = {type: 'notnull', node: {type: 'number'}};
+      result = {type: types.NodeType.NOT_NULL, node: {type: types.NodeType.NUMBER}};
     } else if (node.kind === SyntaxKind.BooleanKeyword) {
-      result = {type: 'notnull', node: {type: 'boolean'}};
+      result = {type: types.NodeType.NOT_NULL, node: {type: types.NodeType.BOOLEAN}};
     } else if (node.kind === SyntaxKind.AnyKeyword) {
-      result = { type: 'any' };
+      result = { type: types.NodeType.ANY};
     } else if (node.kind === SyntaxKind.NullKeyword) {
-      result = {type: 'null'};
+      result = {type: types.NodeType.NULL};
     } else if (node.kind === SyntaxKind.UndefinedKeyword) {
-      result = {type: 'undefined'};
+      result = {type: types.NodeType.UNDEFINED};
     } else if (node.kind === SyntaxKind.ModuleDeclaration) {
       // Nada.
     } else if (node.kind === SyntaxKind.VariableDeclaration) {
@@ -111,7 +111,7 @@ export default class Collector {
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
     // TODO: How can we determine for sure that this is the global date?
     if (node.name.text === 'Date') {
-      return {type: 'reference', target: 'Date'};
+      return {type: types.NodeType.REFERENCE, target: 'Date'};
     }
 
     return this._addType(node, () => {
@@ -127,7 +127,7 @@ export default class Collector {
       }
 
       return {
-        type: 'interface',
+        type: types.NodeType.INTERFACE,
         members: <types.NamedNode[]>node.members.map(this._walkNode),
         inherits,
       };
@@ -139,7 +139,7 @@ export default class Collector {
     const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
 
     return {
-      type: 'method',
+      type: types.NodeType.METHOD,
       name: node.name.getText(),
       parameters,
       returns: this._walkNode(node.type!),
@@ -153,7 +153,7 @@ export default class Collector {
       argNodes[parameter.getName()] = this._walkNode(parameterNode.type!);
     }
     return {
-      type: 'method args',
+      type: types.NodeType.METHOD_PARAMS,
       args: argNodes,
     };
   }
@@ -161,19 +161,19 @@ export default class Collector {
   _walkPropertySignature(node:typescript.PropertySignature):types.Node {
     const signature = this._walkNode(node.type!);
     return {
-      type: 'property',
+      type: types.NodeType.PROPERTY,
       name: node.name.getText(),
-      signature: (node.questionToken && signature.type === 'notnull' ) ? signature.node : signature,
+      signature: (node.questionToken && signature.type === types.NodeType.NOT_NULL ) ? signature.node : signature,
     };
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
-    return { type: 'notnull', node: this._referenceForSymbol(this._symbolForNode(node.typeName)) };
+    return { type: types.NodeType.NOT_NULL, node: this._referenceForSymbol(this._symbolForNode(node.typeName)) };
   }
 
   _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
     return this._addType(node, () => ({
-      type: 'alias',
+      type: types.NodeType.ALIAS,
       target: this._walkNode(node.type),
     }));
   }
@@ -217,7 +217,7 @@ export default class Collector {
         }
       });
       return {
-        type: 'enum',
+        type: types.NodeType.ENUM,
         values,
       };
     });
@@ -225,24 +225,24 @@ export default class Collector {
 
   _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
     return {
-      type: 'literal object',
+      type: types.NodeType.LITERAL_OBJECT,
       members: node.members.map(this._walkNode),
     };
   }
 
   _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.Node {
     return {
-      type: 'notnull',
+      type: types.NodeType.NOT_NULL,
       node: {
-        type: 'array',
+        type: types.NodeType.ARRAY,
         elements: [this._walkNode(node.elementType)],
-      }
+      },
     };
   }
 
   _walkUnionTypeNode(node:typescript.UnionTypeNode):types.Node {
     return {
-      type: 'union',
+      type: types.NodeType.UNION,
       types: node.types.map(this._walkNode),
     };
   }
@@ -257,11 +257,11 @@ export default class Collector {
     } else if (type.flags & TypeFlags.Index) {
       return this._walkNode(type.getSymbol()!.declarations![0]);
     } else if (type.flags & TypeFlags.String) {
-      return {type: 'string'};
+      return {type: types.NodeType.STRING};
     } else if (type.flags & TypeFlags.Number) {
-      return {type: 'number'};
+      return {type: types.NodeType.NUMBER};
     } else if (type.flags & TypeFlags.Boolean) {
-      return {type: 'boolean'};
+      return {type: types.NodeType.BOOLEAN};
     } else {
       console.error(type);
       console.error(type.getSymbol()!.declarations![0].getSourceFile().fileName);
@@ -272,7 +272,7 @@ export default class Collector {
   _walkTypeReference(type:typescript.TypeReference):types.Node {
     if (type.target && type.target.getSymbol()!.name === 'Array') {
       return {
-        type: 'array',
+        type: types.NodeType.ARRAY,
         elements: type.typeArguments!.map(this._walkType),
       };
     } else {
@@ -330,7 +330,7 @@ export default class Collector {
     }
 
     return {
-      type: 'reference',
+      type: types.NodeType.REFERENCE,
       target: this._nameForSymbol(symbol),
     };
   }

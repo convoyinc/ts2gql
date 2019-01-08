@@ -18,11 +18,11 @@ export default class Emitter {
 
   emitTopLevelNode(node:Types.Node, name:Types.SymbolName, stream:NodeJS.WritableStream) {
     let content;
-    if (node.type === 'alias') {
+    if (node.type === Types.NodeType.ALIAS) {
       content = this._emitAlias(node, name);
-    } else if (node.type === 'interface') {
+    } else if (node.type === Types.NodeType.INTERFACE) {
       content = this._emitInterface(node, name);
-    } else if (node.type === 'enum') {
+    } else if (node.type === Types.NodeType.ENUM) {
       content = this._emitEnum(node, name);
     } else {
       throw new Error(`Don't know how to emit ${node.type} as a top level node`);
@@ -35,13 +35,13 @@ export default class Emitter {
   _preprocessNode(node:Types.Node, name:Types.SymbolName):boolean {
     const specialTags = ['ID', 'Int', 'Float'];
 
-    if (node.type === 'alias' && node.target.type === 'reference') {
+    if (node.type === Types.NodeType.ALIAS && node.target.type === Types.NodeType.REFERENCE) {
       const referencedNode = this.types[node.target.target];
-      if (this._isPrimitive(referencedNode) || referencedNode.type === 'enum') {
+      if (this._isPrimitive(referencedNode) || referencedNode.type === Types.NodeType.ENUM) {
         this.renames[name] = node.target.target;
         return true;
       }
-    } else if (node.type === 'alias') {
+    } else if (node.type === Types.NodeType.ALIAS) {
       for (const tag of specialTags) {
         if (this._hasDocTag(node, tag)) {
           this.renames[name] = tag;
@@ -56,13 +56,16 @@ export default class Emitter {
   // Nodes
 
   _emitAlias(node:Types.AliasNode, name:Types.SymbolName):string {
-    if (this._isPrimitive(node.target) || (node.target.type === 'notnull' && this._isPrimitive(node.target.node))) {
+    if (this._isPrimitive(node.target) 
+    || (node.target.type === Types.NodeType.NOT_NULL && this._isPrimitive(node.target.node))) {
       return `scalar ${this._name(name)}`;
-    } else if (node.target.type === 'reference' 
-    || (node.target.type === 'notnull' && node.target.node.type === 'reference')) {
-      const target = node.target.type === 'reference' ? node.target : node.target.node as Types.ReferenceNode;
+    } else if (node.target.type === Types.NodeType.REFERENCE || (node.target.type === Types.NodeType.NOT_NULL 
+      && node.target.node.type === Types.NodeType.REFERENCE)) {
+      const target = node.target.type === Types.NodeType.REFERENCE 
+      ? node.target : node.target.node as Types.ReferenceNode;
       return `union ${this._name(name)} = ${this._emitReference(target)}`;
     } else if (node.target.type === 'union') {
+
       return this._emitUnion(node.target, name);
     } else {
       throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
@@ -74,41 +77,47 @@ export default class Emitter {
   }
 
   _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
-    if (_.every(node.types, entry => entry.type === 'string literal')) {
+    if (_.every(node.types, entry => entry.type === Types.NodeType.STRING_LITERAL)) {
       const nodeValues = node.types.map((type:Types.StringLiteralNode) => type.value);
       return this._emitEnum({
-        type: 'enum',
+        type: Types.NodeType.ENUM,
         values: _.uniq(nodeValues),
       }, this._name(name));
     }
 
     const unionNodeTypes = node.types.map((type) => {
-      if (type.type !== 'reference' && (type.type !== 'notnull' || type.node.type !== 'reference' )) {
+      if (type.type !== Types.NodeType.REFERENCE && (type.type !== Types.NodeType.NOT_NULL 
+        || type.node.type !== Types.NodeType.REFERENCE )) {
         const msg = 'GraphQL unions require that all types are references. Got a ' 
-        + (type.type === 'notnull' ? type.node.type : type.type);
+        + (type.type === Types.NodeType.NOT_NULL ? type.node.type : type.type);
         throw new Error(msg);
+
       }
-      return (type.type === 'reference' ? type : type.node as Types.ReferenceNode);
+      return (type.type === Types.NodeType.REFERENCE ? type : type.node as Types.ReferenceNode);
     });
 
     const firstChild = unionNodeTypes[0];
     const firstChildType = this.types[firstChild.target];
-    if (firstChildType.type === 'enum') {
-      const nodeTypes = unionNodeTypes.map((type:Types.ReferenceNode) => {
+
+    if (firstChildType.type === Types.NodeType.ENUM) {
+      const nodeTypes = node.types.map((type:Types.ReferenceNode) => {
         const subNode = this.types[type.target];
-        if (subNode.type !== 'enum') {
+        if (subNode.type !== Types.NodeType.ENUM) {
           throw new Error(`ts2gql expected a union of only enums since first child is an enum. Got a ${type.type}`);
         }
         return subNode.values;
       });
+
       return this._emitEnum({
-        type: 'enum',
+        type: Types.NodeType.ENUM,
         values: _.uniq(_.flatten(nodeTypes)),
       }, this._name(name));
-    } else if (firstChildType.type === 'interface') {
-      const nodeNames = unionNodeTypes.map((type:Types.ReferenceNode) => {
+
+    } else if (firstChildType.type === Types.NodeType.INTERFACE) {
+      const nodeNames = node.types.map((type:Types.ReferenceNode) => {
+
         const subNode = this.types[type.target];
-        if (subNode.type !== 'interface') {
+        if (subNode.type !== Types.NodeType.INTERFACE) {
           throw new Error(`ts2gql expected a union of only interfaces since first child is an interface. ` +
             `Got a ${type.type}`);
         }
@@ -133,9 +142,9 @@ export default class Emitter {
     // to remove all references (complicated).
     if (!members.length) {
       members.push({
-        type: 'property',
+        type: Types.NodeType.PROPERTY,
         name: '__placeholder',
-        signature: {type: 'boolean'},
+        signature: {type: Types.NodeType.BOOLEAN},
       });
     }
 
@@ -145,9 +154,9 @@ export default class Emitter {
     }
 
     const properties = _.map(members, (member) => {
-      if (member.type === 'method') {
+      if (member.type === Types.NodeType.METHOD) {
         return this._emitInterfaceMethod(member);
-      } else if (member.type === 'property') {
+      } else if (member.type === Types.NodeType.PROPERTY) {
         return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
@@ -179,7 +188,7 @@ export default class Emitter {
 
   _emitMethodArgs(node:Types.MethodParamsNode):string {
     const resolvedArgs = _.mapValues(node.args, (param:Types.Node) => {
-      if (param.type === 'reference') {
+      if (param.type === Types.NodeType.REFERENCE) {
         return this.types[param.target];
       }
       return param;
@@ -197,31 +206,33 @@ export default class Emitter {
   _emitExpression = (node:Types.Node):string => {
     if (!node) {
       return '';
-    } else if (node.type === 'notnull') {
+    } else if (node.type === Types.NodeType.NOT_NULL) {
       return `${this._emitExpression(node.node)}!`;
-    } else if (node.type === 'string') {
+    } else if (node.type === Types.NodeType.STRING) {
       return 'String'; // TODO: ID annotation
-    } else if (node.type === 'number') {
+    } else if (node.type === Types.NodeType.NUMBER) {
       return 'Float'; // TODO: Int/Float annotation
-    } else if (node.type === 'boolean') {
+    } else if (node.type === Types.NodeType.BOOLEAN) {
       return 'Boolean';
-    } else if (node.type === 'reference') {
+    } else if (node.type === Types.NodeType.REFERENCE) {
       return this._name(node.target);
-    } else if (node.type === 'array') {
+    } else if (node.type === Types.NodeType.ARRAY) {
       return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
-    } else if (node.type === 'literal object' || node.type === 'interface') {
+    } else if (node.type === Types.NodeType.LITERAL_OBJECT || node.type === Types.NodeType.INTERFACE) {
       return _(this._collectMembers(node))
         .map((member:Types.PropertyNode) => {
           return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
         })
         .join(', ');
-    } else if (node.type === 'union') {
-      let nonNullTypes = node.types.filter(({type}) => type !== 'null' && type !== 'undefined');
+    } else if (node.type === Types.NodeType.UNION) {
+      let nonNullTypes = node.types.filter(({type}) => {
+        return type !== Types.NodeType.NULL && type !== Types.NodeType.UNDEFINED;
+      });
 
       // If there is any non null type in the union, remove the non-null property of each object of union
       if (nonNullTypes.length !== node.types.length) {
         nonNullTypes = nonNullTypes.map((nonNullNode) =>
-          (nonNullNode.type === 'notnull' ? nonNullNode.node : node),
+          (nonNullNode.type === Types.NodeType.NOT_NULL ? nonNullNode.node : node),
         );
       }
 
@@ -237,7 +248,7 @@ export default class Emitter {
 
   _collectMembers = (node:Types.InterfaceNode|Types.LiteralObjectNode):Types.PropertyNode[] => {
     let members:Types.Node[] = [];
-    if (node.type === 'literal object') {
+    if (node.type === Types.NodeType.LITERAL_OBJECT) {
       members = node.members;
     } else {
       const seenProps = new Set<Types.SymbolName>();
@@ -255,7 +266,7 @@ export default class Emitter {
           throw new Error(`No support for multiple inheritence: ${JSON.stringify(interfaceNode.inherits)}`);
         } else if (interfaceNode.inherits.length === 1) {
           const supertype:Types.Node = this.types[interfaceNode.inherits[0]];
-          if (supertype.type !== 'interface') {
+          if (supertype.type !== Types.NodeType.INTERFACE) {
             throw new Error(`Expected supertype to be an interface node: ${supertype}`);
           }
           interfaceNode = supertype;
@@ -266,7 +277,7 @@ export default class Emitter {
     }
 
     for (const member of members) {
-      if (member.type !== 'property') {
+      if (member.type !== Types.NodeType.PROPERTY) {
         throw new Error(`Expected members to be properties; got ${member.type}`);
       }
     }
@@ -275,12 +286,12 @@ export default class Emitter {
 
   _emitSchemaDefinition(members:Types.Node[]):string {
     const properties = _.map(members, (member) => {
-      if (member.type !== 'property') {
+      if (member.type !== Types.NodeType.PROPERTY) {
         throw new Error(`Can't serialize ${member.type} as a property of an schema definition`);
       }
       const propertySignature = member.signature;
         // Properties of the schema declaration should not contain ! marks
-        if (propertySignature.type === 'notnull') {
+        if (propertySignature.type === Types.NodeType.NOT_NULL) {
           member.signature = propertySignature.node;
         }
         return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
@@ -297,7 +308,8 @@ export default class Emitter {
   }
 
   _isPrimitive(node:Types.Node):boolean {
-    return node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'any';
+    return node.type === Types.NodeType.STRING || node.type === Types.NodeType.NUMBER 
+    || node.type === Types.NodeType.BOOLEAN || node.type === Types.NodeType.ANY;
   }
 
   _indent(content:string|string[]):string {
