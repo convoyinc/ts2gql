@@ -368,10 +368,11 @@ export default class Collector {
       const parser = new MethodParamsParser(cleanedParams);
       try {
         directiveParams = parser.parse();
-      } catch (error) {
-        if (error instanceof InvalidParamsException) {
+      } catch (e) {
+        if (e instanceof InvalidParamsException) {
           throw new Error(`Error parsing parameter list of directive ${jsDocTag.title}.`);
         }
+        throw e;
       }
     }
     return {
