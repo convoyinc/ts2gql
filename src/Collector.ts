@@ -1,8 +1,10 @@
+import * as doctrine from 'doctrine';
 import * as _ from 'lodash';
 import * as typescript from 'typescript';
 
 import * as types from './types';
 import * as util from './util';
+import { MethodParamsParser, InvalidParamsException } from './Parser';
 
 const SyntaxKind = typescript.SyntaxKind;
 const TypeFlags = typescript.TypeFlags;
@@ -137,13 +139,27 @@ export default class Collector {
   _walkMethodSignature(node:typescript.MethodSignature):types.Node {
     const signature = this.checker.getSignatureFromDeclaration(node);
     const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
-
+    const methodDoc = util.documentationForNode(node);
+    const directiveList = methodDoc ? this._retrieveDirectives(methodDoc) : [];
     return {
       type: types.NodeType.METHOD,
       name: node.name.getText(),
       parameters,
       returns: this._walkNode(node.type!),
+      directives: directiveList,
     };
+  }
+
+  _retrieveDirectives(jsDoc:doctrine.ParseResult):types.DirectiveNode[] {
+    const directivesStart = _.findIndex(jsDoc.tags, (tag) => {
+      return tag.title === 'graphql' && tag.description === 'Directives';
+    });
+
+    if (directivesStart === -1) {
+      return [];
+    }
+    
+    return _.map(jsDoc.tags.slice(directivesStart + 1), this._directiveFromDocTag);
   }
 
   _walkMethodParams(params:typescript.Symbol[]):types.MethodParamsNode {
@@ -325,13 +341,43 @@ export default class Collector {
   _referenceForSymbol(symbol:typescript.Symbol):types.ReferenceNode {
     this._walkSymbol(symbol);
     const referenced = this.types[this._nameForSymbol(symbol)];
-    if (referenced && referenced.type === 'interface') {
+    if (referenced && referenced.type === types.NodeType.INTERFACE) {
       referenced.concrete = true;
     }
 
     return {
       type: types.NodeType.REFERENCE,
       target: this._nameForSymbol(symbol),
+    };
+  }
+
+  _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveNode {
+    // This allow us to properly catch the parameters
+    const paramsContentRegex = new RegExp('\\s*\\(\\s*((?:.|\\s)*)\\s*\\)\\s*', 'g');
+    const paramsContent = paramsContentRegex.exec(jsDocTag.description);
+
+    let directiveParams = {
+      type: types.NodeType.METHOD_PARAMS,
+      args: {},
+    } as types.MethodParamsNode;
+    if (paramsContent) {
+      // Remove any spaces
+      const cleanedParams = _.filter(paramsContent[0].split(''), (char) => {
+        return char.match(/\s/) === null;
+      }).join('');
+      const parser = new MethodParamsParser(cleanedParams);
+      try {
+        directiveParams = parser.parse();
+      } catch (error) {
+        if (error instanceof InvalidParamsException) {
+          throw new Error(`Error parsing parameter list of directive ${jsDocTag.title}.`);
+        }
+      }
+    }
+    return {
+      type: types.NodeType.DIRECTIVE,
+      name: jsDocTag.title,
+      params: directiveParams,
     };
   }
 

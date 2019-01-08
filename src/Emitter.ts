@@ -183,7 +183,8 @@ export default class Emitter {
   _emitInterfaceMethod(member:Types.MethodNode):string {
     const parameters = `(${this._emitMethodArgs(member.parameters)})`;
     const returnType = this._emitExpression(member.returns);
-    return `${this._name(member.name)}${parameters}: ${returnType}`;
+    const methodDirectives = this._emitMethodDirectives(member.directives);
+    return `${this._name(member.name)}${parameters}: ${returnType} ${methodDirectives}`;
   }
 
   _emitMethodArgs(node:Types.MethodParamsNode):string {
@@ -199,6 +200,12 @@ export default class Emitter {
     }).join(', ');
   }
 
+  _emitMethodDirectives(directives:Types.DirectiveNode[]):string {
+    return _.map(directives, (directive:Types.DirectiveNode) => {
+      return `@${directive.name}(${this._emitMethodArgs(directive.params)})`;
+    }).join(' ');
+  }
+
   _emitEnum(node:Types.EnumNode, name:Types.SymbolName):string {
     return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
   }
@@ -206,6 +213,8 @@ export default class Emitter {
   _emitExpression = (node:Types.Node):string => {
     if (!node) {
       return '';
+    } else if (node.type === Types.NodeType.VALUE) {
+      return `${node.value}`;
     } else if (node.type === Types.NodeType.NOT_NULL) {
       return `${this._emitExpression(node.node)}!`;
     } else if (node.type === Types.NodeType.STRING) {

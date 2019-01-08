@@ -1,10 +1,11 @@
-import { ComplexNode } from './../dist/src/types.d';
 import * as doctrine from 'doctrine';
+import { MethodParamsParser } from './Parser';
 
 export type SymbolName = string;
 
 export interface ComplexNode {
   documentation?:doctrine.ParseResult;
+  type:NodeType;
 }
 
 export enum NodeType {
@@ -27,6 +28,7 @@ export enum NodeType {
   NULL = 'null',
   UNDEFINED = 'undefined',
   NOT_NULL = 'not null',
+  VALUE = 'value',
 }
 
 export interface InterfaceNode extends ComplexNode {
@@ -41,16 +43,18 @@ export interface MethodNode extends ComplexNode {
   name:string;
   parameters:MethodParamsNode;
   returns:Node;
-  directives?:DirectiveNode[];
+  directives:DirectiveNode[];
 }
 
 export interface MethodParamsNode extends ComplexNode {
   type:NodeType.METHOD_PARAMS;
-  args:{[key:string]:Node};
+  args:TypeMap;
 }
 
 export interface DirectiveNode extends ComplexNode {
   type:NodeType.DIRECTIVE;
+  name:string;
+  params:MethodParamsNode;
 }
 
 export interface ArrayNode extends ComplexNode {
@@ -123,6 +127,11 @@ export interface NotNullNode {
   node:Node;
 }
 
+export interface ValueNode {
+  type:NodeType.VALUE;
+  value:string;
+}
+
 export type Node =
   InterfaceNode |
   MethodNode |
@@ -140,8 +149,17 @@ export type Node =
   NullNode |
   UndefinedNode |
   NotNullNode |
-  AnyNode;
+  AnyNode | 
+  ValueNode;
 
 export type NamedNode = MethodNode | PropertyNode;
 
 export type TypeMap = {[key:string]:Node};
+
+export interface Parser<T> {
+  result:T;
+}
+
+export interface MethodParamsParser extends Parser<MethodParamsNode> {
+
+}
