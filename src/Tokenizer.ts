@@ -1,10 +1,10 @@
 export enum TokenType {
-    PARAMETER_LIST_BEGIN,
-    PARAMETER_NAME,
-    PARAMETER_NAME_VALUE_SEPARATOR,
-    PARAMETER_VALUE,
-    PARAMETER_SEPARATOR,
-    PARAMETER_LIST_END,
+    PARAMETER_LIST_BEGIN = 'PARAMETER_LIST_BEGIN',
+    PARAMETER_NAME = 'PARAMETER_NAME',
+    PARAMETER_NAME_VALUE_SEPARATOR = 'PARAMETER_NAME_VALUE_SEPARATOR',
+    PARAMETER_VALUE = 'PARAMETER_VALUE',
+    PARAMETER_SEPARATOR = 'PARAMETER_SEPARATOR',
+    PARAMETER_LIST_END = 'PARAMETER_LIST_END',
 }
 
 export class MethodParamsToken {
@@ -17,7 +17,7 @@ export class MethodParamsToken {
     }
 }
 
-export class MethodParamsTokenizerException extends Error {}
+class MethodParamsTokenizerException extends Error {}
 
 export class MethodParamsTokenizer {
     private tokens:MethodParamsToken[];
@@ -40,7 +40,7 @@ export class MethodParamsTokenizer {
 
     begin(idx:number) {
         if ( this.raw[idx] !== '(') {
-            throw new MethodParamsTokenizerException('Expected ( before parameter list declaration.');
+            throw new MethodParamsTokenizerException('Expected ( at the beginning of parameter list declaration.');
         }
 
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_LIST_BEGIN, this.raw[idx]));
@@ -87,7 +87,7 @@ export class MethodParamsTokenizer {
     }
 
     parameterValue(idx:number):number {
-        if (this.raw[idx].match(/'|"/))
+        if (this.raw[idx].match(/('|")/))
             return this.stringLiteral(idx);
         
         const valueEnd = this._ignore(/\w|\./, idx);
@@ -109,6 +109,9 @@ export class MethodParamsTokenizer {
         }
         
         const literalEnd = matchedEnd + matchStep;
+        if (this.raw[literalEnd - 1] !== delimiter) {
+            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter ${delimiter}.`);
+        }
         const literal = this.raw.slice(idx, literalEnd);
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, literal));
         return literalEnd;
@@ -124,10 +127,9 @@ export class MethodParamsTokenizer {
 
     _until(ignore:RegExp, start:number, sublen = 1):number {
         let iterator = start;
-        while (start < this.raw.length && !this.raw.slice(iterator, iterator + sublen).match(ignore)) {
+        while (iterator < this.raw.length && !this.raw.slice(iterator, iterator + sublen).match(ignore)) {
             iterator++;
         }
         return iterator;
     }
-
 }

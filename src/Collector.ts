@@ -137,17 +137,22 @@ export default class Collector {
   }
 
   _walkMethodSignature(node:typescript.MethodSignature):types.Node {
-    const signature = this.checker.getSignatureFromDeclaration(node);
-    const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
-    const methodDoc = util.documentationForNode(node);
-    const directiveList = methodDoc ? this._retrieveDirectives(methodDoc) : [];
-    return {
-      type: types.NodeType.METHOD,
-      name: node.name.getText(),
-      parameters,
-      returns: this._walkNode(node.type!),
-      directives: directiveList,
-    };
+    try {
+      const signature = this.checker.getSignatureFromDeclaration(node);
+      const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
+      const methodDoc = util.documentationForNode(node);
+      const directiveList = methodDoc ? this._retrieveDirectives(methodDoc) : [];
+      return {
+        type: types.NodeType.METHOD,
+        name: node.name.getText(),
+        parameters,
+        returns: this._walkNode(node.type!),
+        directives: directiveList,
+      };
+    } catch (e) {
+      e.message = `At method "${node.name.getText()}":\n${e.message}`;
+      throw e;
+    }
   }
 
   _retrieveDirectives(jsDoc:doctrine.ParseResult):types.DirectiveNode[] {
@@ -352,7 +357,7 @@ export default class Collector {
   }
 
   _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveNode {
-    // This allow us to properly catch the parameters
+    // This regex properly catches the parameters substring
     const paramsContentRegex = /\s*\(\s*((?:.|\s)*)\s*\)\s*/g;
     
     let directiveParams = {
@@ -365,16 +370,12 @@ export default class Collector {
         throw new Error(`Invalid parameter description ${jsDocTag.description} at directive ${jsDocTag.title}.`);
       }
 
-      // Remove any spaces
-      const cleanedParams = _.filter(paramsContent[0].split(''), (char) => {
-        return char.match(/\s/) === null;
-      }).join('');
-      const parser = new MethodParamsParser(cleanedParams);
+      const parser = new MethodParamsParser();
       try {
-        directiveParams = parser.parse();
+        directiveParams = parser.parse(paramsContent[0]);
       } catch (e) {
         const parsingMsg = e.message;
-        throw new Error(`Error parsing parameter list of directive ${jsDocTag.title}.\n${parsingMsg}`);      
+        throw new Error(`Failed to parse parameter list of \"${jsDocTag.title}\" directive.\n${parsingMsg}`);      
       }
     }
     return {
