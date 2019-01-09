@@ -1,3 +1,4 @@
+import { ArgValueParseResult } from './Parser';
 import * as types from './types';
 import * as _ from 'lodash';
 
@@ -13,11 +14,9 @@ export interface ArgValueParseResult extends PartialParseResult {
     argValue:types.ValueNode;
 }
 
-export class InvalidParamsException extends Error {
-    constructor() {
-        super("Invalid parameter list.");
-    }
-}
+export class InvalidParamsException extends Error {}
+
+export class ParsingFailedException extends Error {}
 
 export class MethodParamsParser  {
     public token:string;
@@ -39,7 +38,7 @@ export class MethodParamsParser  {
 
     _parseArgs():types.TypeMap {
         if (!this.token || this.token[0] !== '(' || this.token[this.limit - 1] !== ')') {
-            throw new InvalidParamsException();
+            throw new InvalidParamsException('Mismatching parenthesis at parameter list definition');
         }
         let argStart = 1;
         while (argStart < this.limit && this.token[argStart] !== ')') {
@@ -51,10 +50,16 @@ export class MethodParamsParser  {
 
     _parseArg(startIdx:number):number {
         const argNameParseResult = this._parseArgName(startIdx);
-        const argValueParseResult = this._parseArgValue(argNameParseResult.nextIdx);
+        let argValueParseResult;
+        try {
+            argValueParseResult = this._parseArgValue(argNameParseResult.nextIdx);
+        } catch (e) {
+            e.message = `${e.message} at parameter ${argNameParseResult.argName}.`;
+            throw e;
+        }
 
         if (this.args[argNameParseResult.argName]) {
-            throw new InvalidParamsException();
+            throw new InvalidParamsException(`Repeated param name ${argNameParseResult.argName}.`);
         }
         this.args[argNameParseResult.argName] = argValueParseResult.argValue;
 
@@ -62,14 +67,19 @@ export class MethodParamsParser  {
     }
 
     _parseArgName(startIdx:number):ArgNameParseResult {
-        if (this.token[startIdx].match(/[^A-Za-z]/) || !this._checkIndex(startIdx)) {
-            throw new InvalidParamsException();
+        if (!this._checkIndexBound(startIdx)) {
+            throw new ParsingFailedException('Unexpected end of parameter name.');
+        }
+        if (this.token[startIdx].match(/[^A-Za-z]/)) {
+            throw new InvalidParamsException(`Invalid character ${this.token[startIdx]} in parameter name.`);
         }
         let pointer = startIdx + 1;
         while (true) {
-            if (this.token[pointer] === ':') break;
-            if (this.token[pointer].match(/[^\w]/) || pointer === this.limit) {
-                throw new InvalidParamsException();
+            const char = this.token[pointer];
+            if (char === ':') break;
+            if (char.match(/[^\w]/) || pointer === this.limit) {
+                throw new InvalidParamsException('Invalid character ' + char + 
+                ' at name ' + this.token.slice(startIdx, pointer) + '.');
             }
             pointer++;
         }
@@ -81,21 +91,20 @@ export class MethodParamsParser  {
     }
 
     _parseArgValue(startIdx:number):ArgValueParseResult {
-        if (!this._checkIndex(startIdx)) {
-            throw new InvalidParamsException();
+        if (!this._checkIndexBound(startIdx)) {
+            throw new ParsingFailedException('Unexpected end of parameter value');
         }
 
         const stringLiteralDelimiters = ['\'', '"'];
         const literalIdx = _.findIndex(stringLiteralDelimiters, (delimiter) => delimiter === this.token[startIdx]);
 
         let commaIdx;
-        let endIdx;
         if (literalIdx !== -1) {
             // We have a string literal, let's search for value end only after its definition end
             const delimiter = stringLiteralDelimiters[literalIdx];
             const literalEndIdx = this.token.indexOf(delimiter, startIdx + 1);
             if (literalEndIdx === startIdx) {
-                throw new InvalidParamsException();
+                throw new InvalidParamsException(`Mismatched ${delimiter} delimiter in string literal`);
             }
 
             commaIdx = this.token.indexOf(',', literalEndIdx + 1);
@@ -104,7 +113,7 @@ export class MethodParamsParser  {
         }
         
         // If there's no comma, it's last value
-        endIdx = commaIdx !== -1 ? commaIdx : this.limit - 1;
+        const endIdx = commaIdx !== -1 ? commaIdx : this.limit - 1;
 
         return {
             argValue: {
@@ -115,7 +124,7 @@ export class MethodParamsParser  {
         };
     }
 
-    _checkIndex(idx:number):boolean {
+    _checkIndexBound(idx:number):boolean {
         return idx >= 0 && idx < this.limit;
     }
 

@@ -4,7 +4,7 @@ import * as typescript from 'typescript';
 
 import * as types from './types';
 import * as util from './util';
-import { MethodParamsParser, InvalidParamsException } from './Parser';
+import { MethodParamsParser } from './Parser';
 
 const SyntaxKind = typescript.SyntaxKind;
 const TypeFlags = typescript.TypeFlags;
@@ -353,14 +353,18 @@ export default class Collector {
 
   _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveNode {
     // This allow us to properly catch the parameters
-    const paramsContentRegex = new RegExp('\\s*\\(\\s*((?:.|\\s)*)\\s*\\)\\s*', 'g');
-    const paramsContent = paramsContentRegex.exec(jsDocTag.description);
-
+    const paramsContentRegex = /\s*\(\s*((?:.|\s)*)\s*\)\s*/g;
+    
     let directiveParams = {
       type: types.NodeType.METHOD_PARAMS,
       args: {},
     } as types.MethodParamsNode;
-    if (paramsContent) {
+    if (jsDocTag.description) {
+      const paramsContent = jsDocTag.description.match(paramsContentRegex);
+      if (!paramsContent) {
+        throw new Error(`Invalid parameter description ${jsDocTag.description} at directive ${jsDocTag.title}.`);
+      }
+
       // Remove any spaces
       const cleanedParams = _.filter(paramsContent[0].split(''), (char) => {
         return char.match(/\s/) === null;
@@ -369,10 +373,8 @@ export default class Collector {
       try {
         directiveParams = parser.parse();
       } catch (e) {
-        if (e instanceof InvalidParamsException) {
-          throw new Error(`Error parsing parameter list of directive ${jsDocTag.title}.`);
-        }
-        throw e;
+        const parsingMsg = e.message;
+        throw new Error(`Error parsing parameter list of directive ${jsDocTag.title}.\n${parsingMsg}`);      
       }
     }
     return {
