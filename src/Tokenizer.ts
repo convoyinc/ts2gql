@@ -72,7 +72,13 @@ export class MethodParamsTokenizer {
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_NAME_VALUE_SEPARATOR, this.raw[idx]));
 
         idx = this._ignore(/\s/, idx + 1);
-        idx = this.parameterValue(idx);
+        try {
+            idx = this.parameterValue(idx);
+        } catch (e) {
+            const paramName = this.tokens[this.tokens.length - 2].value;
+            e.message = `${e.message} in parameter ${paramName}.`;
+            throw e;
+        }
         return this._ignore(/\s/, idx);
     }
 
@@ -90,11 +96,10 @@ export class MethodParamsTokenizer {
         if (this.raw[idx].match(/('|")/))
             return this.stringLiteral(idx);
         
-        const valueEnd = this._ignore(/\w|\./, idx);
+        const valueEnd = this._until(/\s|,|\)/, idx);
         const value = this.raw.slice(idx, valueEnd);
-        if (!value.match(/\w/) || (value.match(/[A-Z]/i) && value.match(/^\d/)) 
-        || (value.match(/[A-Z]/i) && value.match(/\./)))
-            throw new MethodParamsTokenizerException(`Invalid parameter value ${value}`);
+        if (!this._checkParamValueIntegrity(value))
+            throw new MethodParamsTokenizerException(`Invalid value ${value}`);
         
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, value));
         return valueEnd;
@@ -115,6 +120,14 @@ export class MethodParamsTokenizer {
         const literal = this.raw.slice(idx, literalEnd);
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, literal));
         return literalEnd;
+    }
+
+    _checkParamValueIntegrity(value:string):boolean {
+        // Don't accept characters other than letters, digits, _ and .
+        // It must have at least one letter, digit or _
+        // If there are letters, the name must not start with digits or have .
+        return !value.match(/[^A-Z0-9_\.]/i) && !!value.match(/\w/) 
+        && (!value.match(/[A-Z]/i) || (!value.match(/^\d/) && !value.match(/\./)));
     }
 
     _ignore(ignore:RegExp, start:number, sublen = 1):number {
