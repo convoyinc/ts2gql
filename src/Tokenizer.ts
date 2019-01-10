@@ -98,7 +98,7 @@ export class MethodParamsTokenizer {
         
         const valueEnd = this._until(/\s|,|\)/, idx);
         const value = this.raw.slice(idx, valueEnd);
-        if (!this._checkParamValueIntegrity(value))
+        if (!this._checkPrimitiveValue(value))
             throw new MethodParamsTokenizerException(`Invalid value ${value}`);
         
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, value));
@@ -122,12 +122,49 @@ export class MethodParamsTokenizer {
         return literalEnd;
     }
 
-    _checkParamValueIntegrity(value:string):boolean {
-        // Don't accept characters other than letters, digits, _ and .
+    _checkPrimitiveValue(value:string):boolean {
+        // Don't accept characters other than letters, digits, _, . and -
         // It must have at least one letter, digit or _
-        // If there are letters, the name must not start with digits or have .
-        return !value.match(/[^A-Z0-9_\.]/i) && !!value.match(/\w/) 
-        && (!value.match(/[A-Z]/i) || (!value.match(/^\d/) && !value.match(/\./)));
+        const hasSomeChar = value.length > 0;
+        const invalidChar = !!value.match(/[^A-Z0-9_\.-]/i);
+        if (!hasSomeChar || invalidChar)
+            return false;
+        if (value.match(/[A-Z_]/i))
+            return this._checkNameValue(value);
+        return this._checkNumberValue(value);
+    }
+
+    _checkNameValue(value:string):boolean {
+        // A name must not start with digits, or have non word characters
+        return !value.match(/^\d/) && !value.match(/\W/);
+    }
+
+    _checkNumberValue(value:string):boolean {
+        // There should be - at most once and always in the beginning of value
+        const minusPos = value.lastIndexOf('-');
+        if (minusPos > 0)
+            return false;
+        const positiveNumber =  minusPos === -1 ? value : value.slice(1);
+
+        if (value.match(/\./))
+            return this._checkPositiveFloatValue(positiveNumber);
+        return this._checkPositiveIntValue(positiveNumber);
+    }
+
+    _checkPositiveFloatValue(value:string):boolean {
+        const dots = value.match(/\./g);
+        const dotIdx = value.indexOf('.');
+        return dots !== null && dots.length === 1 && dotIdx !== value.length - 1 
+        && this._checkPositiveIntValue(value.slice(0, dotIdx)) 
+        && this._checkDecimalValue(value.slice(dotIdx + 1));
+    }
+
+    _checkPositiveIntValue(value:string):boolean {
+        return value.length > 0 && !value.match(/\D/) && (value.length === 1 || !value.match(/^0/));
+    }
+
+    _checkDecimalValue(value:string):boolean {
+        return value.length > 0 && !value.match(/\D/);
     }
 
     _ignore(ignore:RegExp, start:number, sublen = 1):number {
