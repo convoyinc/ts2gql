@@ -177,7 +177,7 @@ export class MethodParamsTokenizer {
 
     _until(ignore:RegExp, start:number, sublen = 1):number {
         let iterator = start;
-        while (iterator < this.raw.length && !this.raw.slice(iterator, iterator + sublen).match(ignore)) {
+        while (iterator < this.raw.length - sublen + 1 && !this.raw.slice(iterator, iterator + sublen).match(ignore)) {
             iterator++;
         }
         return iterator;
