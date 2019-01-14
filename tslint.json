@@ -110,7 +110,7 @@
     "max-line-length": [true, 120],
 
     // Trailing whitespace clutters up diffs.
-    "no-trailing-whitespace": false,
+    "no-trailing-whitespace": true,
 
     // Use let as a hint to the reader that the value will change later.
     "prefer-const": true,
