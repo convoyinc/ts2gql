@@ -56,7 +56,7 @@ export default class Emitter {
   // Nodes
 
   _emitAlias(node:Types.AliasNode, name:Types.SymbolName):string {
-    if (this._isPrimitive(node.target)) {
+    if (this._isPrimitive(node.target) || (node.target.type === 'notnull' && this._isPrimitive(node.target.node))) {
       return `scalar ${this._name(name)}`;
     } else if (node.target.type === 'reference' 
     || (node.target.type === 'notnull' && node.target.node.type === 'reference')) {
