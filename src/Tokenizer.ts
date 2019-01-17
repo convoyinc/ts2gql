@@ -58,13 +58,13 @@ export class MethodParamsTokenizer {
 
         if (idx === this.raw.length)
             throw new MethodParamsTokenizerException('Expected ) at the end of parameter list declaration.');
-        
+
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_LIST_END, this.raw[idx]));
     }
 
     parameter(idx:number):number {
         idx = this.parameterName(idx);
-        
+
         if (this.raw[idx] !== ':') {
             const lastName = this.tokens[this.tokens.length - 1].value;
             throw new MethodParamsTokenizerException(`Expected : after parameter ${lastName}.`);
@@ -87,7 +87,7 @@ export class MethodParamsTokenizer {
         const name = this.raw.slice(idx, nameEnd);
         if (!name)
             throw new MethodParamsTokenizerException(`Expected parameter name, found ${this.raw[idx]}`);
-        
+
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_NAME, name));
         return nameEnd;
     }
@@ -95,12 +95,12 @@ export class MethodParamsTokenizer {
     parameterValue(idx:number):number {
         if (this.raw[idx].match(/('|")/))
             return this.stringLiteral(idx);
-        
+
         const valueEnd = this._until(/\s|,|\)/, idx);
         const value = this.raw.slice(idx, valueEnd);
         if (!this._checkPrimitiveValue(value))
             throw new MethodParamsTokenizerException(`Invalid value ${value}`);
-        
+
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, value));
         return valueEnd;
     }
@@ -112,7 +112,7 @@ export class MethodParamsTokenizer {
         if (this.raw.slice(matchedEnd, matchedEnd + matchStep).match(/\n/)) {
             throw new MethodParamsTokenizerException(`Invalid multiline string literal`);
         }
-        
+
         const literalEnd = matchedEnd + matchStep;
         if (this.raw[literalEnd - 1] !== delimiter) {
             throw new MethodParamsTokenizerException(`Mismatched string literal delimiter ${delimiter}.`);
@@ -154,8 +154,8 @@ export class MethodParamsTokenizer {
     _checkPositiveFloatValue(value:string):boolean {
         const dots = value.match(/\./g);
         const dotIdx = value.indexOf('.');
-        return dots !== null && dots.length === 1 && dotIdx !== value.length - 1 
-        && this._checkPositiveIntValue(value.slice(0, dotIdx)) 
+        return dots !== null && dots.length === 1 && dotIdx !== value.length - 1
+        && this._checkPositiveIntValue(value.slice(0, dotIdx))
         && this._checkDecimalValue(value.slice(dotIdx + 1));
     }
 
@@ -167,17 +167,17 @@ export class MethodParamsTokenizer {
         return value.length > 0 && !value.match(/\D/);
     }
 
-    _ignore(ignore:RegExp, start:number, sublen = 1):number {
+    _ignore(ignore:RegExp, start:number, step = 1):number {
         let iterator = start;
-        while (iterator < this.raw.length - sublen + 1 && this.raw.slice(iterator, iterator + sublen).match(ignore)) {
+        while (iterator < this.raw.length - step + 1 && this.raw.slice(iterator, iterator + step).match(ignore)) {
             iterator++;
         }
         return iterator;
     }
 
-    _until(ignore:RegExp, start:number, sublen = 1):number {
+    _until(ignore:RegExp, start:number, step = 1):number {
         let iterator = start;
-        while (iterator < this.raw.length - sublen + 1 && !this.raw.slice(iterator, iterator + sublen).match(ignore)) {
+        while (iterator < this.raw.length - step + 1 && !this.raw.slice(iterator, iterator + step).match(ignore)) {
             iterator++;
         }
         return iterator;

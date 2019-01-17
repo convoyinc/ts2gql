@@ -56,12 +56,12 @@ export default class Emitter {
   // Nodes
 
   _emitAlias(node:Types.AliasNode, name:Types.SymbolName):string {
-    if (this._isPrimitive(node.target) 
+    if (this._isPrimitive(node.target)
     || (node.target.type === Types.NodeType.NOT_NULL && this._isPrimitive(node.target.node))) {
       return `scalar ${this._name(name)}`;
-    } else if (node.target.type === Types.NodeType.REFERENCE || (node.target.type === Types.NodeType.NOT_NULL 
+    } else if (node.target.type === Types.NodeType.REFERENCE || (node.target.type === Types.NodeType.NOT_NULL
       && node.target.node.type === Types.NodeType.REFERENCE)) {
-      const target = node.target.type === Types.NodeType.REFERENCE 
+      const target = node.target.type === Types.NodeType.REFERENCE
       ? node.target : node.target.node as Types.ReferenceNode;
       return `union ${this._name(name)} = ${this._emitReference(target)}`;
     } else if (node.target.type === 'union') {
@@ -86,9 +86,9 @@ export default class Emitter {
     }
 
     const unionNodeTypes = node.types.map((type) => {
-      if (type.type !== Types.NodeType.REFERENCE && (type.type !== Types.NodeType.NOT_NULL 
+      if (type.type !== Types.NodeType.REFERENCE && (type.type !== Types.NodeType.NOT_NULL
         || type.node.type !== Types.NodeType.REFERENCE )) {
-        const msg = 'GraphQL unions require that all types are references. Got a ' 
+        const msg = 'GraphQL unions require that all types are references. Got a '
         + (type.type === Types.NodeType.NOT_NULL ? type.node.type : type.type);
         throw new Error(msg);
 
@@ -100,7 +100,7 @@ export default class Emitter {
     const firstChildType = this.types[firstChild.target];
 
     if (firstChildType.type === Types.NodeType.ENUM) {
-      const nodeTypes = node.types.map((type:Types.ReferenceNode) => {
+      const nodeTypes = unionNodeTypes.map((type:Types.ReferenceNode) => {
         const subNode = this.types[type.target];
         if (subNode.type !== Types.NodeType.ENUM) {
           throw new Error(`ts2gql expected a union of only enums since first child is an enum. Got a ${type.type}`);
@@ -114,7 +114,7 @@ export default class Emitter {
       }, this._name(name));
 
     } else if (firstChildType.type === Types.NodeType.INTERFACE) {
-      const nodeNames = node.types.map((type:Types.ReferenceNode) => {
+      const nodeNames = unionNodeTypes.map((type:Types.ReferenceNode) => {
 
         const subNode = this.types[type.target];
         if (subNode.type !== Types.NodeType.INTERFACE) {
@@ -317,7 +317,7 @@ export default class Emitter {
   }
 
   _isPrimitive(node:Types.Node):boolean {
-    return node.type === Types.NodeType.STRING || node.type === Types.NodeType.NUMBER 
+    return node.type === Types.NodeType.STRING || node.type === Types.NodeType.NUMBER
     || node.type === Types.NodeType.BOOLEAN || node.type === Types.NodeType.ANY;
   }
 

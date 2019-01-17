@@ -1,4 +1,3 @@
-import { ArgValueParseResult } from './Parser';
 import * as types from './types';
 import { MethodParamsTokenizer, MethodParamsToken, TokenType } from './Tokenizer';
 
@@ -39,10 +38,10 @@ export class MethodParamsParser  {
         if (!this.tokens || this.tokens[0].type !== TokenType.PARAMETER_LIST_BEGIN) {
             throw new ParsingFailedException(`Token list created without beginning token.`);
         }
-        let argIdx = 1; 
+        let argIdx = 1;
         while (this.tokens[argIdx].type !== TokenType.PARAMETER_LIST_END) {
             if (argIdx > 1) {
-                if (this.tokens[argIdx].type !== TokenType.PARAMETER_SEPARATOR) 
+                if (this.tokens[argIdx].type !== TokenType.PARAMETER_SEPARATOR)
                     throw new ParsingFailedException(`Expected separators between parameters in parameter list.`);
                 argIdx++;
             }
@@ -56,10 +55,10 @@ export class MethodParamsParser  {
         const nameToken = this.tokens[start];
         const nameValueSeparatorToken = this.tokens[start + 1];
         const valueToken = this.tokens[start + 2];
-        if (nameToken.type !== TokenType.PARAMETER_NAME 
-        || nameValueSeparatorToken.type !== TokenType.PARAMETER_NAME_VALUE_SEPARATOR 
+        if (nameToken.type !== TokenType.PARAMETER_NAME
+        || nameValueSeparatorToken.type !== TokenType.PARAMETER_NAME_VALUE_SEPARATOR
         || valueToken.type !== TokenType.PARAMETER_VALUE) {
-            throw new ParsingFailedException(`Invalid token sequence for parameter list: 
+            throw new ParsingFailedException(`Invalid token sequence for parameter list:
             \n${nameToken.type}: ${nameToken.value}
             \n${nameValueSeparatorToken.type}: ${nameValueSeparatorToken.value}
             \n${valueToken.type}: ${valueToken.value}`);
@@ -72,7 +71,7 @@ export class MethodParamsParser  {
             type: types.NodeType.VALUE,
             value: valueToken.value,
         };
-        
+
         return start + 3;
     }
 }

@@ -149,7 +149,7 @@ export type Node =
   NullNode |
   UndefinedNode |
   NotNullNode |
-  AnyNode | 
+  AnyNode |
   ValueNode;
 
 export type NamedNode = MethodNode | PropertyNode;
