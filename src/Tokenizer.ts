@@ -56,10 +56,16 @@ export class MethodParamsTokenizer {
             idx = this.parameter(idx);
         }
 
-        if (idx === this.raw.length)
+        if (idx >= this.raw.length)
             throw new MethodParamsTokenizerException('Expected ) at the end of parameter list declaration.');
 
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_LIST_END, this.raw[idx]));
+
+        const excessStart = idx + 1;
+        const excess = this.raw.slice(excessStart);
+        if (excess.match(/[^\s]/g)) {
+            throw new MethodParamsTokenizerException(`Unexpected out of bound expression ${excess}.`);
+        }
     }
 
     parameter(idx:number):number {
@@ -110,7 +116,7 @@ export class MethodParamsTokenizer {
         const matchStep = 2;
         const matchedEnd = this._until(new RegExp(`([^\\\\]${delimiter})|\\n`), idx, matchStep);
         if (this.raw.slice(matchedEnd, matchedEnd + matchStep).match(/\n/)) {
-            throw new MethodParamsTokenizerException(`Invalid multiline string literal`);
+            throw new MethodParamsTokenizerException(`Invalid multiline string literal.`);
         }
 
         const literalEnd = matchedEnd + matchStep;
@@ -140,7 +146,7 @@ export class MethodParamsTokenizer {
     }
 
     _checkNumberValue(value:string):boolean {
-        // There should be - at most once and always in the beginning of value
+        // There should be a - at most once and always in the beginning of value
         const minusPos = value.lastIndexOf('-');
         if (minusPos > 0)
             return false;
@@ -152,6 +158,7 @@ export class MethodParamsTokenizer {
     }
 
     _checkPositiveFloatValue(value:string):boolean {
+        // There should be a unique . separator with at least one algarism before and after
         const dots = value.match(/\./g);
         const dotIdx = value.indexOf('.');
         return dots !== null && dots.length === 1 && dotIdx !== value.length - 1

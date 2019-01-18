@@ -163,7 +163,13 @@ export default class Collector {
     if (directivesStart === -1) {
       return [];
     }
-    return _.map(jsDoc.tags.slice(directivesStart + 1), this._directiveFromDocTag);
+    const processedTags = {};
+    return _.map(jsDoc.tags.slice(directivesStart + 1), (tag) => {
+      if (processedTags[`${tag.title}`])
+        throw new Error(`Multiple declarations of directive ${tag.title}.`);
+      processedTags[`${tag.title}`] = true;
+      return this._directiveFromDocTag(tag);
+    });
   }
 
   _walkMethodParams(params:typescript.Symbol[]):types.MethodParamsNode {
@@ -356,20 +362,14 @@ export default class Collector {
   }
 
   _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveNode {
-    // This regex properly catches the parameters substring
-    const paramsContentRegex = /\s*\(\s*((?:.|\s)*)\s*\)\s*/g;
     let directiveParams = {
       type: types.NodeType.METHOD_PARAMS,
       args: {},
     } as types.MethodParamsNode;
     if (jsDocTag.description) {
-      const paramsContent = jsDocTag.description.match(paramsContentRegex);
-      if (!paramsContent) {
-        throw new Error(`Invalid parameter description ${jsDocTag.description} at directive ${jsDocTag.title}.`);
-      }
       const parser = new MethodParamsParser();
       try {
-        directiveParams = parser.parse(paramsContent[0]);
+        directiveParams = parser.parse(jsDocTag.description);
       } catch (e) {
         const parsingMsg = e.message;
         throw new Error(`Failed to parse parameter list of \"${jsDocTag.title}\" directive.\n${parsingMsg}`);
