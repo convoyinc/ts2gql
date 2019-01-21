@@ -115,23 +115,25 @@ export class MethodParamsTokenizer {
             : `Invalid value '${value}'. Expected number, boolean, string literal or name'`;
             throw new MethodParamsTokenizerException(msg);
         }
-
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, value));
         return valueEnd;
     }
 
     stringLiteral(idx:number):number {
         const delimiter = this.raw[idx];
-        const matchStep = 2;
-        const matchedEnd = this._until(new RegExp(`([^\\\\]${delimiter})|\\n`), idx + 1, matchStep);
-        if (this.raw.slice(matchedEnd, matchedEnd + matchStep).match(/\n/)) {
+        const literalEndRegex = new RegExp(`(?:[^\\\\](?:\\\\{2})*)${delimiter}`);
+        const result = literalEndRegex.exec(this.raw.slice(idx));
+        if (result === null) {
+            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter '${delimiter}'.`);
+        }
+
+        const matchBegin = idx + result.index;
+        const matchLength = result[0].length;
+        if (this.raw.slice(idx, matchBegin + matchLength).match(/\n/)) {
             throw new MethodParamsTokenizerException(`Invalid multiline string literal.`);
         }
 
-        const literalEnd = matchedEnd + matchStep;
-        if (this.raw[literalEnd - 1] !== delimiter) {
-            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter '${delimiter}'.`);
-        }
+        const literalEnd = matchBegin + matchLength;
         const literal = this.raw.slice(idx, literalEnd);
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, literal));
         return literalEnd;
@@ -180,17 +182,17 @@ export class MethodParamsTokenizer {
         return value.length > 0 && !value.match(/\D/);
     }
 
-    _ignore(ignore:RegExp, start:number, step = 1):number {
+    _ignore(ignore:RegExp, start:number):number {
         let iterator = start;
-        while (iterator < this.raw.length - step + 1 && this.raw.slice(iterator, iterator + step).match(ignore)) {
+        while (iterator < this.raw.length && this.raw[iterator].match(ignore)) {
             iterator++;
         }
         return iterator;
     }
 
-    _until(ignore:RegExp, start:number, step = 1):number {
+    _until(ignore:RegExp, start:number):number {
         let iterator = start;
-        while (iterator < this.raw.length - step + 1 && !this.raw.slice(iterator, iterator + step).match(ignore)) {
+        while (iterator < this.raw.length && !this.raw[iterator].match(ignore)) {
             iterator++;
         }
         return iterator;
