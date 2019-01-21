@@ -165,9 +165,9 @@ export default class Collector {
     }
     const processedTags = {};
     return _.map(jsDoc.tags.slice(directivesStart + 1), (tag) => {
-      if (processedTags[`${tag.title}`])
+      if (processedTags[tag.title])
         throw new Error(`Multiple declarations of directive ${tag.title}.`);
-      processedTags[`${tag.title}`] = true;
+      processedTags[tag.title] = true;
       return this._directiveFromDocTag(tag);
     });
   }

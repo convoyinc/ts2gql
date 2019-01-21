@@ -33,14 +33,15 @@ export class MethodParamsTokenizer {
         this.tokens = [];
 
         this.raw = content;
-        this.begin(0);
+        this.begin();
 
         return this.tokens;
     }
 
-    begin(idx:number) {
+    begin() {
+        let idx = 0;
         if ( this.raw[idx] !== '(') {
-            throw new MethodParamsTokenizerException('Expected ( at the beginning of parameter list declaration.');
+            throw new MethodParamsTokenizerException("Expected '(' at the beginning of parameter list declaration.");
         }
 
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_LIST_BEGIN, this.raw[idx]));
@@ -48,7 +49,8 @@ export class MethodParamsTokenizer {
         while (idx < this.raw.length && this.raw[idx] !== ')') {
             if (this.tokens.length > 1) {
                 if (this.raw[idx] !== ',') {
-                    throw new MethodParamsTokenizerException('Expected , between parameter definitions.');
+                    const lastToken = this.tokens[this.tokens.length - 1];
+                    throw new MethodParamsTokenizerException(`Expected ',' after ${lastToken.value} token.`);
                 }
                 this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_SEPARATOR, ','));
                 idx = this._ignore(/\s/, idx + 1);
@@ -56,24 +58,26 @@ export class MethodParamsTokenizer {
             idx = this.parameter(idx);
         }
 
-        if (idx >= this.raw.length)
-            throw new MethodParamsTokenizerException('Expected ) at the end of parameter list declaration.');
+        if (idx >= this.raw.length) {
+            throw new MethodParamsTokenizerException("Expected ')' at the end of parameter list declaration.");
+        }
 
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_LIST_END, this.raw[idx]));
 
         const excessStart = idx + 1;
         const excess = this.raw.slice(excessStart);
         if (excess.match(/[^\s]/g)) {
-            throw new MethodParamsTokenizerException(`Unexpected out of bound expression ${excess}.`);
+            throw new MethodParamsTokenizerException(`Unexpected out of bound expression '${excess}'.`);
         }
     }
 
     parameter(idx:number):number {
         idx = this.parameterName(idx);
 
+        idx = this._ignore(/\s/, idx);
         if (this.raw[idx] !== ':') {
             const lastName = this.tokens[this.tokens.length - 1].value;
-            throw new MethodParamsTokenizerException(`Expected : after parameter ${lastName}.`);
+            throw new MethodParamsTokenizerException(`Expected ':' after parameter '${lastName}'.`);
         }
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_NAME_VALUE_SEPARATOR, this.raw[idx]));
 
@@ -91,21 +95,26 @@ export class MethodParamsTokenizer {
     parameterName(idx:number):number {
         const nameEnd = this._ignore(/\w/, idx);
         const name = this.raw.slice(idx, nameEnd);
-        if (!name)
-            throw new MethodParamsTokenizerException(`Expected parameter name, found ${this.raw[idx]}`);
+        if (!name) {
+            throw new MethodParamsTokenizerException(`Expected parameter name, found '${this.raw[idx]}'`);
+        }
 
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_NAME, name));
         return nameEnd;
     }
 
     parameterValue(idx:number):number {
-        if (this.raw[idx].match(/('|")/))
+        if (this.raw[idx].match(/'|"/)) {
             return this.stringLiteral(idx);
+        }
 
         const valueEnd = this._until(/\s|,|\)/, idx);
         const value = this.raw.slice(idx, valueEnd);
-        if (!this._checkPrimitiveValue(value))
-            throw new MethodParamsTokenizerException(`Invalid value ${value}`);
+        if (!this._checkPrimitiveValue(value)) {
+            const msg = value.length === 0 ? `Missing value`
+            : `Invalid value '${value}'. Expected number, boolean, string literal or name'`;
+            throw new MethodParamsTokenizerException(msg);
+        }
 
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, value));
         return valueEnd;
@@ -114,14 +123,14 @@ export class MethodParamsTokenizer {
     stringLiteral(idx:number):number {
         const delimiter = this.raw[idx];
         const matchStep = 2;
-        const matchedEnd = this._until(new RegExp(`([^\\\\]${delimiter})|\\n`), idx, matchStep);
+        const matchedEnd = this._until(new RegExp(`([^\\\\]${delimiter})|\\n`), idx + 1, matchStep);
         if (this.raw.slice(matchedEnd, matchedEnd + matchStep).match(/\n/)) {
             throw new MethodParamsTokenizerException(`Invalid multiline string literal.`);
         }
 
         const literalEnd = matchedEnd + matchStep;
         if (this.raw[literalEnd - 1] !== delimiter) {
-            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter ${delimiter}.`);
+            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter '${delimiter}'.`);
         }
         const literal = this.raw.slice(idx, literalEnd);
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, literal));
@@ -129,14 +138,9 @@ export class MethodParamsTokenizer {
     }
 
     _checkPrimitiveValue(value:string):boolean {
-        // Don't accept characters other than letters, digits, _, . and -
-        // It must have at least one letter, digit or _
-        const hasSomeChar = value.length > 0;
-        const invalidChar = !!value.match(/[^A-Z0-9_\.-]/i);
-        if (!hasSomeChar || invalidChar)
-            return false;
-        if (value.match(/[A-Z_]/i))
+        if (value.match(/[A-Z_]/i)) {
             return this._checkNameValue(value);
+        }
         return this._checkNumberValue(value);
     }
 
@@ -148,12 +152,14 @@ export class MethodParamsTokenizer {
     _checkNumberValue(value:string):boolean {
         // There should be a - at most once and always in the beginning of value
         const minusPos = value.lastIndexOf('-');
-        if (minusPos > 0)
+        if (minusPos > 0) {
             return false;
+        }
         const positiveNumber =  minusPos === -1 ? value : value.slice(1);
 
-        if (value.match(/\./))
+        if (value.match(/\./)) {
             return this._checkPositiveFloatValue(positiveNumber);
+        }
         return this._checkPositiveIntValue(positiveNumber);
     }
 
