@@ -147,39 +147,11 @@ export class MethodParamsTokenizer {
     }
 
     _checkNameValue(value:string):boolean {
-        // A name must not start with digits, or have non word characters
         return !value.match(/^\d/) && !value.match(/\W/);
     }
 
     _checkNumberValue(value:string):boolean {
-        // There should be a - at most once and always in the beginning of value
-        const minusPos = value.lastIndexOf('-');
-        if (minusPos > 0) {
-            return false;
-        }
-        const positiveNumber =  minusPos === -1 ? value : value.slice(1);
-
-        if (value.match(/\./)) {
-            return this._checkPositiveFloatValue(positiveNumber);
-        }
-        return this._checkPositiveIntValue(positiveNumber);
-    }
-
-    _checkPositiveFloatValue(value:string):boolean {
-        // There should be a unique . separator with at least one algarism before and after
-        const dots = value.match(/\./g);
-        const dotIdx = value.indexOf('.');
-        return dots !== null && dots.length === 1 && dotIdx !== value.length - 1
-        && this._checkPositiveIntValue(value.slice(0, dotIdx))
-        && this._checkDecimalValue(value.slice(dotIdx + 1));
-    }
-
-    _checkPositiveIntValue(value:string):boolean {
-        return value.length > 0 && !value.match(/\D/) && (value.length === 1 || !value.match(/^0/));
-    }
-
-    _checkDecimalValue(value:string):boolean {
-        return value.length > 0 && !value.match(/\D/);
+        return !isNaN(Number(value).valueOf());
     }
 
     _ignore(ignore:RegExp, start:number):number {
