@@ -86,7 +86,7 @@ export class MethodParamsTokenizer {
             idx = this.parameterValue(idx);
         } catch (e) {
             const paramName = this.tokens[this.tokens.length - 2].value;
-            e.message = `${e.message} in parameter ${paramName}.`;
+            e.message = `${e.message} in parameter '${paramName}'.`;
             throw e;
         }
         return this._ignore(/\s/, idx);
@@ -124,13 +124,13 @@ export class MethodParamsTokenizer {
         const literalEndRegex = new RegExp(`(?:[^\\\\](?:\\\\{2})*)${delimiter}`);
         const result = literalEndRegex.exec(this.raw.slice(idx));
         if (result === null) {
-            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter '${delimiter}'.`);
+            throw new MethodParamsTokenizerException(`Mismatched string literal delimiter '${delimiter}'`);
         }
 
         const matchBegin = idx + result.index;
         const matchLength = result[0].length;
         if (this.raw.slice(idx, matchBegin + matchLength).match(/\n/)) {
-            throw new MethodParamsTokenizerException(`Invalid multiline string literal.`);
+            throw new MethodParamsTokenizerException(`Invalid multiline string literal`);
         }
 
         const literalEnd = matchBegin + matchLength;
