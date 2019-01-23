@@ -1,98 +1,135 @@
 import * as doctrine from 'doctrine';
+import { MethodParamsParser } from './Parser';
 
 export type SymbolName = string;
 
 export interface ComplexNode {
   documentation?:doctrine.ParseResult;
+  type:NodeType;
+}
+
+export enum NodeType {
+  INTERFACE = 'interface',
+  METHOD = 'method',
+  METHOD_PARAMS = 'method params',
+  DIRECTIVE = 'directive',
+  ARRAY = 'array',
+  REFERENCE = 'reference',
+  PROPERTY = 'property',
+  ALIAS = 'alias',
+  ENUM = 'enum',
+  UNION = 'union',
+  LITERAL_OBJECT = 'literal object',
+  STRING_LITERAL = 'string literal',
+  STRING = 'string',
+  NUMBER = 'number',
+  BOOLEAN = 'boolean',
+  ANY = 'any',
+  NULL = 'null',
+  UNDEFINED = 'undefined',
+  NOT_NULL = 'not null',
+  VALUE = 'value',
 }
 
 export interface InterfaceNode extends ComplexNode {
-  type:'interface';
+  type:NodeType.INTERFACE;
   members:NamedNode[];
   inherits:SymbolName[];
   concrete?:boolean; // Whether the type is directly used (returned).
 }
 
 export interface MethodNode extends ComplexNode {
-  type:'method';
+  type:NodeType.METHOD;
   name:string;
   parameters:MethodParamsNode;
   returns:Node;
+  directives:DirectiveNode[];
 }
 
 export interface MethodParamsNode extends ComplexNode {
-  type:'method args';
-  args:{[key:string]:Node};
+  type:NodeType.METHOD_PARAMS;
+  args:TypeMap;
+}
+
+export interface DirectiveNode extends ComplexNode {
+  type:NodeType.DIRECTIVE;
+  name:string;
+  params:MethodParamsNode;
 }
 
 export interface ArrayNode extends ComplexNode {
-  type:'array';
+  type:NodeType.ARRAY;
   elements:Node[];
 }
 
 export interface ReferenceNode extends ComplexNode {
-  type:'reference';
+  type:NodeType.REFERENCE;
   target:SymbolName;
 }
 
 export interface PropertyNode extends ComplexNode {
-  type:'property';
+  type:NodeType.PROPERTY;
   name:string;
   signature:Node;
 }
 
 export interface AliasNode extends ComplexNode {
-  type:'alias';
+  type:NodeType.ALIAS;
   target:Node;
 }
 
 export interface EnumNode extends ComplexNode {
-  type:'enum';
+  type:NodeType.ENUM;
   values:string[];
 }
 
 export interface UnionNode extends ComplexNode {
-  type:'union';
+  type:NodeType.UNION;
   types:Node[];
 }
 
 export interface LiteralObjectNode {
-  type:'literal object';
+  type:NodeType.LITERAL_OBJECT;
   members:Node[];
 }
 
 export interface StringLiteralNode {
-  type:'string literal';
+  type:NodeType.STRING_LITERAL;
   value:string;
 }
 
 export interface StringNode {
-  type:'string';
+  type:NodeType.STRING;
 }
 
 export interface NumberNode {
-  type:'number';
+  type:NodeType.NUMBER;
 }
 
 export interface BooleanNode {
-  type:'boolean';
+  type:NodeType.BOOLEAN;
 }
 
 export interface AnyNode {
-  type:'any';
+  type:NodeType.ANY;
 }
 
 export interface NullNode {
-  type:'null';
+  type:NodeType.NULL;
 }
 
 export interface UndefinedNode {
-  type:'undefined';
+  type:NodeType.UNDEFINED;
 }
 
 export interface NotNullNode {
-  type:'notnull';
+  type:NodeType.NOT_NULL;
   node:Node;
+}
+
+export interface ValueNode {
+  type:NodeType.VALUE;
+  value:string;
 }
 
 export type Node =
@@ -112,8 +149,17 @@ export type Node =
   NullNode |
   UndefinedNode |
   NotNullNode |
-  AnyNode;
+  AnyNode |
+  ValueNode;
 
 export type NamedNode = MethodNode | PropertyNode;
 
 export type TypeMap = {[key:string]:Node};
+
+export interface Parser<T> {
+  result:T;
+}
+
+export interface MethodParamsParser extends Parser<MethodParamsNode> {
+
+}
