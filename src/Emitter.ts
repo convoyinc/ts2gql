@@ -202,7 +202,11 @@ export default class Emitter {
 
   _emitMethodDirectives(directives:Types.DirectiveNode[]):string {
     return _.map(directives, (directive:Types.DirectiveNode) => {
-      return `@${directive.name}(${this._emitMethodArgs(directive.params)})`;
+      const methodArgs = this._emitMethodArgs(directive.params);
+      if (!methodArgs) {
+        return `@${directive.name}`;
+      }
+      return `@${directive.name}(${methodArgs})`;
     }).join(' ');
   }
 
