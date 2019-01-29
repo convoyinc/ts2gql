@@ -177,7 +177,7 @@ export default class Collector {
     for (const parameter of params) {
       const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
       const collectedNode = this._walkNode(parameterNode.type!);
-      argNodes[parameter.getName()] = parameterNode.questionToken ? this._unwrapNotNull(collectedNode) : collectedNode;
+      argNodes[parameter.getName()] = parameterNode.questionToken ? util.unwrapNotNull(collectedNode) : collectedNode;
     }
     return {
       type: types.NodeType.METHOD_PARAMS,
@@ -187,16 +187,21 @@ export default class Collector {
 
   _walkPropertySignature(node:typescript.PropertySignature):types.Node {
     const signature = this._walkNode(node.type!);
+    let nullableReference = false;
+    if (signature.type === types.NodeType.REFERENCE) {
+      let referenced = this.types[signature.target];
+      referenced = referenced.type === types.NodeType.ALIAS ? referenced.target : referenced;
+      nullableReference = referenced.type !== types.NodeType.NOT_NULL;
+    }
     return {
       type: types.NodeType.PROPERTY,
       name: node.name.getText(),
-      signature: (node.questionToken && signature.type === types.NodeType.NOT_NULL )
-      ? this._unwrapNotNull(signature) : signature,
+      signature: (node.questionToken || nullableReference) ? util.unwrapNotNull(signature) : signature,
     };
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
-    return { type: types.NodeType.NOT_NULL, node: this._referenceForSymbol(this._symbolForNode(node.typeName)) };
+    return this._referenceForSymbol(this._symbolForNode(node.typeName));
   }
 
   _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
@@ -268,10 +273,47 @@ export default class Collector {
     };
   }
 
-  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.Node {
-    return {
+  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
+    const unionMembers = node.types.map(this._walkNode);
+    const withoutNull = unionMembers.filter((member:types.Node):boolean => {
+      return member.type !== types.NodeType.NULL && member.type !== types.NodeType.UNDEFINED;
+    });
+    const nullable = withoutNull.length !== unionMembers.length;
+
+    // GraphQL does not allow unions with GraphQL Scalars, Unions or Scalars
+    withoutNull.map((member:types.Node) => {
+      const memberNode = member.type === types.NodeType.NOT_NULL ? member.node : member;
+      if (memberNode.type === types.NodeType.REFERENCE) {
+        const referenced = this.types[memberNode.target];
+        if (referenced.type === types.NodeType.ALIAS && util.isPrimitive(referenced.target)) {
+          throw new Error(`GraphQL does not support Scalar as an union member.`);
+        }
+        if (referenced.type === types.NodeType.UNION) {
+          throw new Error(`GraphQL does not support UnionType as an union member.`);
+        }
+        if (referenced.type === types.NodeType.INTERFACE && !referenced.concrete) {
+          throw new Error(`GraphQL does not support InterfaceType as an union member.`);
+        }
+      } else if (util.isPrimitive(member)) {
+        throw new Error(`GraphQL does not support Scalar as an union member.`);
+      }
+    });
+
+    const collectedUnion = {
       type: types.NodeType.UNION,
-      types: node.types.map(this._walkNode),
+      types: withoutNull,
+    } as types.UnionNode;
+
+    if (nullable) {
+      // If there is any non null type in the union, remove the non-null property of each object of union
+      collectedUnion.types = collectedUnion.types.map((collectedUnionNode:types.Node):types.Node => {
+        return collectedUnionNode.type === types.NodeType.NOT_NULL ? collectedUnionNode.node : collectedUnionNode;
+      });
+      return collectedUnion;
+    }
+    return {
+      type: types.NodeType.NOT_NULL,
+      node: collectedUnion,
     };
   }
 
@@ -383,13 +425,4 @@ export default class Collector {
       params: directiveParams,
     };
   }
-
-  _unwrapNotNull(node:types.Node):types.Node {
-    let unwrapped = node;
-    while (unwrapped.type === types.NodeType.NOT_NULL) {
-      unwrapped = unwrapped.node;
-    }
-    return unwrapped;
-  }
-
 }
