@@ -33,7 +33,7 @@ export enum NodeType {
 
 export interface InterfaceNode extends ComplexNode {
   type:NodeType.INTERFACE;
-  members:NamedNode[];
+  members:FieldNode[];
   inherits:SymbolName[];
   concrete?:boolean; // Whether the type is directly used (returned).
 }
@@ -152,7 +152,7 @@ export type Node =
   AnyNode |
   ValueNode;
 
-export type NamedNode = MethodNode | PropertyNode;
+export type FieldNode = MethodNode | PropertyNode;
 
 export type TypeMap = {[key:string]:Node};
 

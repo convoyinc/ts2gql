@@ -33,7 +33,7 @@ export default class Collector {
     if (!existing) {
       throw new Error(`Cannot override "${name}" - it was never included`);
     }
-    const overrides = <types.NamedNode[]>node.members.map(this._walkNode);
+    const overrides = <types.FieldNode[]>node.members.map(this._walkNode);
     const overriddenNames = new Set(overrides.map(o => (<any>o).name));
     existing.members = _(existing.members)
       .filter(m => !overriddenNames.has(m.name))
@@ -130,7 +130,7 @@ export default class Collector {
 
       return {
         type: types.NodeType.INTERFACE,
-        members: <types.NamedNode[]>node.members.map(this._walkNode),
+        members: <types.FieldNode[]>node.members.map(this._walkNode),
         inherits,
       };
     });
@@ -176,7 +176,8 @@ export default class Collector {
     const argNodes:types.TypeMap = {};
     for (const parameter of params) {
       const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
-      argNodes[parameter.getName()] = this._walkNode(parameterNode.type!);
+      const collectedNode = this._walkNode(parameterNode.type!);
+      argNodes[parameter.getName()] = parameterNode.questionToken ? this._unwrapNotNull(collectedNode) : collectedNode;
     }
     return {
       type: types.NodeType.METHOD_PARAMS,
@@ -189,7 +190,8 @@ export default class Collector {
     return {
       type: types.NodeType.PROPERTY,
       name: node.name.getText(),
-      signature: (node.questionToken && signature.type === types.NodeType.NOT_NULL ) ? signature.node : signature,
+      signature: (node.questionToken && signature.type === types.NodeType.NOT_NULL )
+      ? this._unwrapNotNull(signature) : signature,
     };
   }
 
@@ -380,6 +382,14 @@ export default class Collector {
       name: jsDocTag.title,
       params: directiveParams,
     };
+  }
+
+  _unwrapNotNull(node:types.Node):types.Node {
+    let unwrapped = node;
+    while (unwrapped.type === types.NodeType.NOT_NULL) {
+      unwrapped = unwrapped.node;
+    }
+    return unwrapped;
   }
 
 }
