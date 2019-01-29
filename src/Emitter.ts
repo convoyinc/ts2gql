@@ -188,14 +188,7 @@ export default class Emitter {
   }
 
   _emitMethodArgs(node:Types.MethodParamsNode):string {
-    const resolvedArgs = _.mapValues(node.args, (param:Types.Node) => {
-      if (param.type === Types.NodeType.REFERENCE) {
-        return this.types[param.target];
-      }
-      return param;
-    });
-
-    return _.map(resolvedArgs, (argValue:Types.Node, argName:string) => {
+    return _.map(node.args, (argValue:Types.Node, argName:string) => {
       return `${this._name(argName)}: ${this._emitExpression(argValue)}`;
     }).join(', ');
   }
