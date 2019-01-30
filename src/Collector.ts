@@ -50,14 +50,15 @@ export default class Collector {
     }
     const nodeReference:types.Node = <types.Node>{};
     this.nodeMap.set(node, nodeReference);
+    const doc =  util.documentationForNode(node);
 
     let result:types.Node|null = null;
     if (node.kind === SyntaxKind.InterfaceDeclaration) {
       result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
     } else if (node.kind === SyntaxKind.MethodSignature) {
-      result = this._walkMethodSignature(<typescript.MethodSignature>node);
+      result = this._walkMethodSignature(<typescript.MethodSignature>node, doc);
     } else if (node.kind === SyntaxKind.PropertySignature) {
-      result = this._walkPropertySignature(<typescript.PropertySignature>node);
+      result = this._walkPropertySignature(<typescript.PropertySignature>node, doc);
     } else if (node.kind === SyntaxKind.TypeReference) {
       result = this._walkTypeReferenceNode(<typescript.TypeReferenceNode>node);
     } else if (node.kind === SyntaxKind.TypeAliasDeclaration) {
@@ -136,13 +137,11 @@ export default class Collector {
     });
   }
 
-  _walkMethodSignature(node:typescript.MethodSignature):types.Node {
+  _walkMethodSignature(node:typescript.MethodSignature, doc:doctrine.ParseResult | undefined):types.Node {
     try {
-      const signature = this.checker.getSignatureFromDeclaration(node);
-      const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
+      const parameters:types.MethodParamsNode = this._walkMethodParams(node.parameters);
       const collectedReturn = this._walkNode(node.type!);
-      const methodDoc = util.documentationForNode(node);
-      const directiveList = methodDoc ? this._retrieveDirectives(methodDoc) : [];
+      const directiveList = doc ? this._retrieveDirectives(doc) : [];
       return {
         type: types.NodeType.METHOD,
         name: node.name.getText(),
@@ -173,12 +172,11 @@ export default class Collector {
     });
   }
 
-  _walkMethodParams(params:typescript.Symbol[]):types.MethodParamsNode {
+  _walkMethodParams(paramNodes:typescript.NodeArray<typescript.ParameterDeclaration>):types.MethodParamsNode {
     const argNodes:types.TypeMap = {};
-    for (const parameter of params) {
-      const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
-      const collectedNode = this._walkNode(parameterNode.type!);
-      argNodes[parameter.getName()] = (parameterNode.questionToken || this._isNullable(collectedNode)) ?
+    for (const paramNode of paramNodes) {
+      const collectedNode = this._walkNode(paramNode.type!);
+      argNodes[paramNode.name.getText()] = (paramNode.questionToken || this._isNullable(collectedNode)) ?
       util.unwrapNotNull(collectedNode) : util.wrapNotNull(collectedNode);
     }
     return {
@@ -187,8 +185,18 @@ export default class Collector {
     };
   }
 
-  _walkPropertySignature(node:typescript.PropertySignature):types.Node {
-    const signature = this._walkNode(node.type!);
+  _walkPropertySignature(node:typescript.PropertySignature, doc:doctrine.ParseResult | undefined):types.Node {
+    const nodeType = node.type!;
+    if (typescript.isFunctionTypeNode(nodeType)) {
+      return this._walkMethodSignature(typescript.createMethodSignature(
+        nodeType.typeParameters,
+        nodeType.parameters,
+        nodeType.type,
+        node.name,
+        node.questionToken,
+      ), doc);
+    }
+    const signature = this._walkNode(nodeType);
     return {
       type: types.NodeType.PROPERTY,
       name: node.name.getText(),
