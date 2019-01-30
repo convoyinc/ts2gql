@@ -152,6 +152,8 @@ export type Node =
   AnyNode |
   ValueNode;
 
+export type ScalarNode = StringNode | NumberNode | BooleanNode;
+
 export type FieldNode = MethodNode | PropertyNode;
 
 export type TypeMap = {[key:string]:Node};

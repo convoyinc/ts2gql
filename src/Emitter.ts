@@ -59,14 +59,18 @@ export default class Emitter {
     const aliasTarget = node.target.type === Types.NodeType.NOT_NULL ? node.target.node : node.target;
 
     if (util.isPrimitive(aliasTarget)) {
-      return `scalar ${this._name(name)}`;
+      return this._emitScalarDefinition(name);
     } else if (aliasTarget.type === Types.NodeType.REFERENCE) {
       return `union ${this._name(name)} = ${this._emitReference(aliasTarget)}`;
-    } else if (aliasTarget.type === 'union') {
+    } else if (aliasTarget.type === Types.NodeType.UNION) {
       return this._emitUnion(aliasTarget, name);
     } else {
       throw new Error(`Can't serialize ${JSON.stringify(aliasTarget, undefined, 1)} as an alias`);
     }
+  }
+
+  _emitScalarDefinition(name:Types.SymbolName):string {
+    return `scalar ${this._name(name)}`;
   }
 
   _emitReference(node:Types.ReferenceNode):string {
@@ -80,6 +84,11 @@ export default class Emitter {
         type: Types.NodeType.ENUM,
         values: _.uniq(nodeValues),
       }, this._name(name));
+    }
+
+    // Since there is no union of scalars, interpret as a custom Scalar declaration
+    if (node.types.length === 1 && util.isPrimitive(node.types[0])) {
+      return this._emitScalarDefinition(name);
     }
 
     const unionNodeTypes = node.types.map((type) => {

@@ -28,3 +28,13 @@ export function unwrapNotNull(node:types.Node):types.Node {
   }
   return unwrapped;
 }
+
+export function wrapNotNull(node:types.Node):types.NotNullNode {
+  if (node.type === types.NodeType.NOT_NULL) {
+    return node;
+  }
+  return {
+    type: types.NodeType.NOT_NULL,
+    node,
+  };
+}
