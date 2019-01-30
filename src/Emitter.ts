@@ -1,6 +1,6 @@
 import * as _ from 'lodash';
-
 import * as Types from './types';
+import * as util from './util';
 
 // tslint:disable-next-line
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
@@ -37,7 +37,7 @@ export default class Emitter {
 
     if (node.type === Types.NodeType.ALIAS && node.target.type === Types.NodeType.REFERENCE) {
       const referencedNode = this.types[node.target.target];
-      if (this._isPrimitive(referencedNode) || referencedNode.type === Types.NodeType.ENUM) {
+      if (util.isPrimitive(referencedNode) || referencedNode.type === Types.NodeType.ENUM) {
         this.renames[name] = node.target.target;
         return true;
       }
@@ -56,20 +56,21 @@ export default class Emitter {
   // Nodes
 
   _emitAlias(node:Types.AliasNode, name:Types.SymbolName):string {
-    if (this._isPrimitive(node.target)
-    || (node.target.type === Types.NodeType.NOT_NULL && this._isPrimitive(node.target.node))) {
-      return `scalar ${this._name(name)}`;
-    } else if (node.target.type === Types.NodeType.REFERENCE || (node.target.type === Types.NodeType.NOT_NULL
-      && node.target.node.type === Types.NodeType.REFERENCE)) {
-      const target = node.target.type === Types.NodeType.REFERENCE
-      ? node.target : node.target.node as Types.ReferenceNode;
-      return `union ${this._name(name)} = ${this._emitReference(target)}`;
-    } else if (node.target.type === 'union') {
+    const aliasTarget = node.target.type === Types.NodeType.NOT_NULL ? node.target.node : node.target;
 
-      return this._emitUnion(node.target, name);
+    if (util.isPrimitive(aliasTarget)) {
+      return this._emitScalarDefinition(name);
+    } else if (aliasTarget.type === Types.NodeType.REFERENCE) {
+      return `union ${this._name(name)} = ${this._emitReference(aliasTarget)}`;
+    } else if (aliasTarget.type === Types.NodeType.UNION) {
+      return this._emitUnion(aliasTarget, name);
     } else {
-      throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
+      throw new Error(`Can't serialize ${JSON.stringify(aliasTarget, undefined, 1)} as an alias`);
     }
+  }
+
+  _emitScalarDefinition(name:Types.SymbolName):string {
+    return `scalar ${this._name(name)}`;
   }
 
   _emitReference(node:Types.ReferenceNode):string {
@@ -85,6 +86,11 @@ export default class Emitter {
       }, this._name(name));
     }
 
+    if (node.types.length === 1 && util.isPrimitive(node.types[0])) {
+      // Since union of scalars is forbidden, interpret as a custom Scalar declaration
+      return this._emitScalarDefinition(name);
+    }
+
     const unionNodeTypes = node.types.map((type) => {
       if (type.type !== Types.NodeType.REFERENCE && (type.type !== Types.NodeType.NOT_NULL
         || type.node.type !== Types.NodeType.REFERENCE )) {
@@ -97,9 +103,18 @@ export default class Emitter {
     });
 
     const firstChild = unionNodeTypes[0];
-    const firstChildType = this.types[firstChild.target];
+    let firstChildType = this.types[firstChild.target];
+    if (firstChildType.type === Types.NodeType.ALIAS) {
+      firstChildType = util.unwrapNotNull(firstChildType.target);
+    }
 
-    if (firstChildType.type === Types.NodeType.ENUM) {
+    if (util.isPrimitive(firstChildType)) {
+      throw new Error('GraphQL does not support unions with GraphQL Scalars');
+    } else if (firstChildType.type === Types.NodeType.UNION) {
+      throw new Error('GraphQL does not support unions with GraphQL Unions');
+    } else if (firstChildType.type === Types.NodeType.INTERFACE && !firstChildType.concrete) {
+      throw new Error('GraphQL does not support unions with GraphQL Interfaces.');
+    } else if (firstChildType.type === Types.NodeType.ENUM) {
       const nodeTypes = unionNodeTypes.map((type:Types.ReferenceNode) => {
         const subNode = this.types[type.target];
         if (subNode.type !== Types.NodeType.ENUM) {
@@ -118,8 +133,12 @@ export default class Emitter {
 
         const subNode = this.types[type.target];
         if (subNode.type !== Types.NodeType.INTERFACE) {
-          throw new Error(`ts2gql expected a union of only interfaces since first child is an interface. ` +
-            `Got a ${type.type}`);
+          let error = 'GraphQL expects an union of only Object Types.';
+          if (subNode.type === Types.NodeType.ALIAS) {
+            const target = util.unwrapNotNull(subNode.target);
+            error = error + ` Got a ${target.type}.`;
+          }
+          throw new Error(error);
         }
         return type.target;
       });
@@ -231,22 +250,10 @@ export default class Emitter {
         })
         .join(', ');
     } else if (node.type === Types.NodeType.UNION) {
-      let nonNullTypes = node.types.filter(({type}) => {
-        return type !== Types.NodeType.NULL && type !== Types.NodeType.UNDEFINED;
-      });
-
-      // If there is any non null type in the union, remove the non-null property of each object of union
-      if (nonNullTypes.length !== node.types.length) {
-        nonNullTypes = nonNullTypes.map((nonNullNode) =>
-          (nonNullNode.type === Types.NodeType.NOT_NULL ? nonNullNode.node : node),
-        );
+      if (node.types.length !== 1) {
+        throw new Error(`There's no support for inline union with non-null and non-undefined types.`);
       }
-
-      if (nonNullTypes.length !== 1) {
-        throw new Error(`There's no support for union with non-null and non-undefined types.`);
-      }
-
-      return this._emitExpression(nonNullTypes[0]);
+      return this._emitExpression(node.types[0]);
     } else {
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
@@ -311,11 +318,6 @@ export default class Emitter {
   _name = (name:Types.SymbolName):string => {
     name = this.renames[name] || name;
     return name.replace(/\W/g, '_');
-  }
-
-  _isPrimitive(node:Types.Node):boolean {
-    return node.type === Types.NodeType.STRING || node.type === Types.NodeType.NUMBER
-    || node.type === Types.NodeType.BOOLEAN || node.type === Types.NodeType.ANY;
   }
 
   _indent(content:string|string[]):string {

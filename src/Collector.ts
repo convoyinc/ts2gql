@@ -31,7 +31,7 @@ export default class Collector {
   mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
     const existing = <types.InterfaceNode>this.types[name];
     if (!existing) {
-      throw new Error(`Cannot override "${name}" - it was never included`);
+      throw new Error(`Cannot override '${name}' - it was never included`);
     }
     const overrides = <types.FieldNode[]>node.members.map(this._walkNode);
     const overriddenNames = new Set(overrides.map(o => (<any>o).name));
@@ -140,17 +140,18 @@ export default class Collector {
     try {
       const signature = this.checker.getSignatureFromDeclaration(node);
       const parameters:types.MethodParamsNode = this._walkMethodParams(signature!.getParameters());
+      const collectedReturn = this._walkNode(node.type!);
       const methodDoc = util.documentationForNode(node);
       const directiveList = methodDoc ? this._retrieveDirectives(methodDoc) : [];
       return {
         type: types.NodeType.METHOD,
         name: node.name.getText(),
         parameters,
-        returns: this._walkNode(node.type!),
+        returns: this._isNullable(collectedReturn) ? collectedReturn : util.wrapNotNull(collectedReturn),
         directives: directiveList,
       };
     } catch (e) {
-      e.message = `At method "${node.name.getText()}":\n${e.message}`;
+      e.message = `At function '${node.name.getText()}':\n${e.message}`;
       throw e;
     }
   }
@@ -177,7 +178,8 @@ export default class Collector {
     for (const parameter of params) {
       const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
       const collectedNode = this._walkNode(parameterNode.type!);
-      argNodes[parameter.getName()] = parameterNode.questionToken ? this._unwrapNotNull(collectedNode) : collectedNode;
+      argNodes[parameter.getName()] = (parameterNode.questionToken || this._isNullable(collectedNode)) ?
+      util.unwrapNotNull(collectedNode) : util.wrapNotNull(collectedNode);
     }
     return {
       type: types.NodeType.METHOD_PARAMS,
@@ -190,13 +192,13 @@ export default class Collector {
     return {
       type: types.NodeType.PROPERTY,
       name: node.name.getText(),
-      signature: (node.questionToken && signature.type === types.NodeType.NOT_NULL )
-      ? this._unwrapNotNull(signature) : signature,
+      signature: (node.questionToken || this._isNullable(signature)) ?
+      util.unwrapNotNull(signature) : util.wrapNotNull(signature),
     };
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
-    return { type: types.NodeType.NOT_NULL, node: this._referenceForSymbol(this._symbolForNode(node.typeName)) };
+    return this._referenceForSymbol(this._symbolForNode(node.typeName));
   }
 
   _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
@@ -258,7 +260,7 @@ export default class Collector {
     };
   }
 
-  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.Node {
+  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.NotNullWrapper<types.ArrayNode> {
     return {
       type: types.NodeType.NOT_NULL,
       node: {
@@ -268,10 +270,46 @@ export default class Collector {
     };
   }
 
-  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.Node {
-    return {
+  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
+    const unionMembers = node.types.map(this._walkNode);
+    const withoutNull = unionMembers.filter((member:types.Node):boolean => {
+      return member.type !== types.NodeType.NULL && member.type !== types.NodeType.UNDEFINED;
+    });
+    const nullable = withoutNull.length !== unionMembers.length;
+
+    // GraphQL does not allow unions with GraphQL Scalars, Unions or Scalars
+    // Interpret TypeScript Union of one only primitive as a scalar
+    withoutNull.map((member:types.Node) => {
+      const memberNode = util.unwrapNotNull(member);
+      if (memberNode.type === types.NodeType.REFERENCE) {
+        const referenced = this.types[memberNode.target];
+        if (referenced.type === types.NodeType.ALIAS && util.isPrimitive(referenced.target) && withoutNull.length > 1) {
+          throw new Error(`GraphQL does not support Scalar as an union member.`);
+        }
+        if (referenced.type === types.NodeType.UNION) {
+          throw new Error(`GraphQL does not support UnionType as an union member.`);
+        }
+        if (referenced.type === types.NodeType.INTERFACE && !referenced.concrete) {
+          throw new Error(`GraphQL does not support InterfaceType as an union member.`);
+        }
+      } else if (util.isPrimitive(member) && withoutNull.length > 1) {
+        throw new Error(`GraphQL does not support Scalar as an union member.`);
+      }
+    });
+
+    const collectedUnion = {
       type: types.NodeType.UNION,
-      types: node.types.map(this._walkNode),
+      types: withoutNull,
+    } as types.UnionNode;
+
+    if (nullable) {
+      // If the union is nullable, remove the non-null property of all members
+      collectedUnion.types = collectedUnion.types.map(util.unwrapNotNull);
+      return collectedUnion;
+    }
+    return {
+      type: types.NodeType.NOT_NULL,
+      node: collectedUnion,
     };
   }
 
@@ -384,12 +422,16 @@ export default class Collector {
     };
   }
 
-  _unwrapNotNull(node:types.Node):types.Node {
-    let unwrapped = node;
-    while (unwrapped.type === types.NodeType.NOT_NULL) {
-      unwrapped = unwrapped.node;
+  _isNullable(node:types.Node):boolean {
+    if (node.type === types.NodeType.REFERENCE) {
+      const referenced = this.types[node.target];
+      if (!referenced) {
+        return false;
+      }
+      return this._isNullable(referenced);
+    } else if (node.type === types.NodeType.ALIAS) {
+      return this._isNullable(node.target);
     }
-    return unwrapped;
+    return node.type !== types.NodeType.NOT_NULL;
   }
-
 }
