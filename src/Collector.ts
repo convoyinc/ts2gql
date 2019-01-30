@@ -260,7 +260,7 @@ export default class Collector {
     };
   }
 
-  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.NotNullNode {
+  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.NotNullWrapper<types.ArrayNode> {
     return {
       type: types.NodeType.NOT_NULL,
       node: {
@@ -278,8 +278,9 @@ export default class Collector {
     const nullable = withoutNull.length !== unionMembers.length;
 
     // GraphQL does not allow unions with GraphQL Scalars, Unions or Scalars
+    // Interpret TypeScript Union of one only primitive as a scalar
     withoutNull.map((member:types.Node) => {
-      const memberNode = member.type === types.NodeType.NOT_NULL ? member.node : member;
+      const memberNode = util.unwrapNotNull(member);
       if (memberNode.type === types.NodeType.REFERENCE) {
         const referenced = this.types[memberNode.target];
         if (referenced.type === types.NodeType.ALIAS && util.isPrimitive(referenced.target) && withoutNull.length > 1) {
@@ -302,10 +303,8 @@ export default class Collector {
     } as types.UnionNode;
 
     if (nullable) {
-      // If there is any non null type in the union, remove the non-null property of each object of union
-      collectedUnion.types = collectedUnion.types.map((collectedUnionNode:types.Node):types.Node => {
-        return collectedUnionNode.type === types.NodeType.NOT_NULL ? collectedUnionNode.node : collectedUnionNode;
-      });
+      // If the union is nullable, remove the non-null property of all members
+      collectedUnion.types = collectedUnion.types.map(util.unwrapNotNull);
       return collectedUnion;
     }
     return {
@@ -425,12 +424,11 @@ export default class Collector {
 
   _isNullable(node:types.Node):boolean {
     if (node.type === types.NodeType.REFERENCE) {
-      let referenced = this.types[node.target];
+      const referenced = this.types[node.target];
       if (!referenced) {
         return false;
       }
-      referenced = referenced.type === types.NodeType.ALIAS ? referenced.target : referenced;
-      return referenced.type !== types.NodeType.NOT_NULL;
+      return this._isNullable(referenced);
     } else if (node.type === types.NodeType.ALIAS) {
       return this._isNullable(node.target);
     }

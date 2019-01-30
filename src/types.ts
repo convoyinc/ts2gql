@@ -127,6 +127,11 @@ export interface NotNullNode {
   node:Node;
 }
 
+export interface NotNullWrapper<T extends ComplexNode> {
+  type:NodeType.NOT_NULL;
+  node:T;
+}
+
 export interface ValueNode {
   type:NodeType.VALUE;
   value:string;

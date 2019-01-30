@@ -86,8 +86,8 @@ export default class Emitter {
       }, this._name(name));
     }
 
-    // Since there is no union of scalars, interpret as a custom Scalar declaration
     if (node.types.length === 1 && util.isPrimitive(node.types[0])) {
+      // Since union of scalars is forbidden, interpret as a custom Scalar declaration
       return this._emitScalarDefinition(name);
     }
 
