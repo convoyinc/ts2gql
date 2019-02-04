@@ -18,7 +18,7 @@ export class ParsingFailedException extends Error {}
 export class MethodParamsParser  {
     private tokenizer:MethodParamsTokenizer;
     private tokens:MethodParamsToken[];
-    private args:types.TypeMap;
+    private args:types.TypeDefinitionMap;
 
     constructor() {
         this.tokenizer = new MethodParamsTokenizer();
@@ -26,15 +26,15 @@ export class MethodParamsParser  {
         this.args = {};
     }
 
-    parse(stringToParse:string):types.MethodParamsNode {
+    parse(stringToParse:string):types.DirectiveArguments {
         this.tokens = this.tokenizer.tokenize(stringToParse);
         return {
-            type: types.NodeType.METHOD_PARAMS,
+            kind: types.GQLNodeKind.ARGUMENTS_DEFINITION,
             args: this._parseArgs(),
         };
     }
 
-    _parseArgs():types.TypeMap {
+    _parseArgs():types.TypeDefinitionMap {
         if (!this.tokens || this.tokens[0].type !== TokenType.PARAMETER_LIST_BEGIN) {
             throw new ParsingFailedException(`Token list created without beginning token.`);
         }
@@ -68,7 +68,7 @@ export class MethodParamsParser  {
             throw new ParsingFailedException(`Repeated param name ${nameToken.value}.`);
         }
         this.args[nameToken.value] = {
-            type: types.NodeType.VALUE,
+            kind: types.GQLNodeKind.VALUE,
             value: valueToken.value,
         };
 

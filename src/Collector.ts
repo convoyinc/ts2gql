@@ -14,7 +14,7 @@ const TypeFlags = typescript.TypeFlags;
  * referenced types.
  */
 export default class Collector {
-  types:types.TypeMap = {};
+  types:types.TypeDefinitionMap = {};
   private checker:typescript.TypeChecker;
   private nodeMap:Map<typescript.Node, types.Node> = new Map();
 
@@ -76,21 +76,21 @@ export default class Collector {
       result = this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
     } else if (node.kind === SyntaxKind.LiteralType) {
       result = {
-        type: types.NodeType.STRING_LITERAL,
+        type: types.GQLNodeKind.STRING_LITERAL,
         value: _.trim((<typescript.LiteralTypeNode>node).literal.getText(), "'\""),
       };
     } else if (node.kind === SyntaxKind.StringKeyword) {
-      result = {type: types.NodeType.NOT_NULL, node: {type: types.NodeType.STRING}};
+      result = {type: types.GQLNodeKind.NON_NULL, node: {type: types.GQLNodeKind.STRING_TYPE}};
     } else if (node.kind === SyntaxKind.NumberKeyword) {
-      result = {type: types.NodeType.NOT_NULL, node: {type: types.NodeType.NUMBER}};
+      result = {type: types.GQLNodeKind.NON_NULL, node: {type: types.GQLNodeKind.NUMBER}};
     } else if (node.kind === SyntaxKind.BooleanKeyword) {
-      result = {type: types.NodeType.NOT_NULL, node: {type: types.NodeType.BOOLEAN}};
+      result = {type: types.GQLNodeKind.NON_NULL, node: {type: types.GQLNodeKind.BOOLEAN_TYPE}};
     } else if (node.kind === SyntaxKind.AnyKeyword) {
-      result = { type: types.NodeType.ANY};
+      result = { type: types.GQLNodeKind.ANY};
     } else if (node.kind === SyntaxKind.NullKeyword) {
-      result = {type: types.NodeType.NULL};
+      result = {type: types.GQLNodeKind.NULL};
     } else if (node.kind === SyntaxKind.UndefinedKeyword) {
-      result = {type: types.NodeType.UNDEFINED};
+      result = {type: types.GQLNodeKind.UNDEFINED};
     } else if (node.kind === SyntaxKind.ModuleDeclaration) {
       // Nada.
     } else if (node.kind === SyntaxKind.VariableDeclaration) {
@@ -114,7 +114,7 @@ export default class Collector {
   _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
     // TODO: How can we determine for sure that this is the global date?
     if (node.name.text === 'Date') {
-      return {type: types.NodeType.REFERENCE, target: 'Date'};
+      return {type: types.GQLNodeKind.REFERENCE, target: 'Date'};
     }
 
     return this._addType(node, () => {
@@ -130,7 +130,7 @@ export default class Collector {
       }
 
       return {
-        type: types.NodeType.INTERFACE,
+        type: types.GQLNodeKind.INTERFACE_DEFINITION,
         members: <types.FieldNode[]>node.members.map(this._walkNode),
         inherits,
       };
@@ -139,11 +139,11 @@ export default class Collector {
 
   _walkMethodSignature(node:typescript.MethodSignature, doc:doctrine.ParseResult | undefined):types.Node {
     try {
-      const parameters:types.MethodParamsNode = this._walkMethodParams(node.parameters);
+      const parameters:types.DirectiveArguments = this._walkMethodParams(node.parameters);
       const collectedReturn = this._walkNode(node.type!);
       const directiveList = doc ? this._retrieveDirectives(doc) : [];
       return {
-        type: types.NodeType.METHOD,
+        type: types.GQLNodeKind.FIELD_DEFINITION,
         name: node.name.getText(),
         parameters,
         returns: this._isNullable(collectedReturn) ? collectedReturn : util.wrapNotNull(collectedReturn),
@@ -155,7 +155,7 @@ export default class Collector {
     }
   }
 
-  _retrieveDirectives(jsDoc:doctrine.ParseResult):types.DirectiveNode[] {
+  _retrieveDirectives(jsDoc:doctrine.ParseResult):types.DirectiveDefinitionNode[] {
     const directivesStart = _.findIndex(jsDoc.tags, (tag) => {
       return tag.title === 'graphql' && tag.description === 'Directives';
     });
@@ -172,15 +172,15 @@ export default class Collector {
     });
   }
 
-  _walkMethodParams(paramNodes:typescript.NodeArray<typescript.ParameterDeclaration>):types.MethodParamsNode {
-    const argNodes:types.TypeMap = {};
+  _walkMethodParams(paramNodes:typescript.NodeArray<typescript.ParameterDeclaration>):types.DirectiveArguments {
+    const argNodes:types.TypeDefinitionMap = {};
     for (const paramNode of paramNodes) {
       const collectedNode = this._walkNode(paramNode.type!);
       argNodes[paramNode.name.getText()] = (paramNode.questionToken || this._isNullable(collectedNode)) ?
       util.unwrapNotNull(collectedNode) : util.wrapNotNull(collectedNode);
     }
     return {
-      type: types.NodeType.METHOD_PARAMS,
+      kind: types.GQLNodeKind.ARGUMENTS_DEFINITION,
       args: argNodes,
     };
   }
@@ -198,7 +198,7 @@ export default class Collector {
     }
     const signature = this._walkNode(nodeType);
     return {
-      type: types.NodeType.PROPERTY,
+      type: types.GQLNodeKind.PROPERTY,
       name: node.name.getText(),
       signature: (node.questionToken || this._isNullable(signature)) ?
       util.unwrapNotNull(signature) : util.wrapNotNull(signature),
@@ -211,7 +211,7 @@ export default class Collector {
 
   _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
     return this._addType(node, () => ({
-      type: types.NodeType.ALIAS,
+      type: types.GQLNodeKind.ALIAS,
       target: this._walkNode(node.type),
     }));
   }
@@ -255,7 +255,7 @@ export default class Collector {
         }
       });
       return {
-        type: types.NodeType.ENUM,
+        type: types.GQLNodeKind.ENUM_DEFINITION,
         values,
       };
     });
@@ -263,16 +263,16 @@ export default class Collector {
 
   _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
     return {
-      type: types.NodeType.LITERAL_OBJECT,
+      type: types.GQLNodeKind.LITERAL_OBJECT,
       members: node.members.map(this._walkNode),
     };
   }
 
-  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.NotNullWrapper<types.ArrayNode> {
+  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.NotNullWrapper<types.ListNode> {
     return {
-      type: types.NodeType.NOT_NULL,
+      type: types.GQLNodeKind.NON_NULL,
       node: {
-        type: types.NodeType.ARRAY,
+        type: types.GQLNodeKind.ARRAY,
         elements: [this._walkNode(node.elementType)],
       },
     };
@@ -281,7 +281,7 @@ export default class Collector {
   _walkUnionTypeNode(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
     const unionMembers = node.types.map(this._walkNode);
     const withoutNull = unionMembers.filter((member:types.Node):boolean => {
-      return member.type !== types.NodeType.NULL && member.type !== types.NodeType.UNDEFINED;
+      return member.type !== types.GQLNodeKind.NULL && member.type !== types.GQLNodeKind.UNDEFINED;
     });
     const nullable = withoutNull.length !== unionMembers.length;
 
@@ -289,15 +289,15 @@ export default class Collector {
     // Interpret TypeScript Union of one only primitive as a scalar
     withoutNull.map((member:types.Node) => {
       const memberNode = util.unwrapNotNull(member);
-      if (memberNode.type === types.NodeType.REFERENCE) {
+      if (memberNode.type === types.GQLNodeKind.REFERENCE) {
         const referenced = this.types[memberNode.target];
-        if (referenced.type === types.NodeType.ALIAS && util.isPrimitive(referenced.target) && withoutNull.length > 1) {
+        if (referenced.kind === types.GQLNodeKind.ALIAS && util.isPrimitive(referenced.target) && withoutNull.length > 1) {
           throw new Error(`GraphQL does not support Scalar as an union member.`);
         }
-        if (referenced.type === types.NodeType.UNION) {
+        if (referenced.kind === types.GQLNodeKind.UNION_DEFINITION) {
           throw new Error(`GraphQL does not support UnionType as an union member.`);
         }
-        if (referenced.type === types.NodeType.INTERFACE && !referenced.concrete) {
+        if (referenced.kind === types.GQLNodeKind.INTERFACE_DEFINITION && !referenced.concrete) {
           throw new Error(`GraphQL does not support InterfaceType as an union member.`);
         }
       } else if (util.isPrimitive(member) && withoutNull.length > 1) {
@@ -306,7 +306,7 @@ export default class Collector {
     });
 
     const collectedUnion = {
-      type: types.NodeType.UNION,
+      type: types.GQLNodeKind.UNION_DEFINITION,
       types: withoutNull,
     } as types.UnionNode;
 
@@ -316,7 +316,7 @@ export default class Collector {
       return collectedUnion;
     }
     return {
-      type: types.NodeType.NOT_NULL,
+      type: types.GQLNodeKind.NON_NULL,
       node: collectedUnion,
     };
   }
@@ -331,11 +331,11 @@ export default class Collector {
     } else if (type.flags & TypeFlags.Index) {
       return this._walkNode(type.getSymbol()!.declarations![0]);
     } else if (type.flags & TypeFlags.String) {
-      return {type: types.NodeType.STRING};
+      return {type: types.GQLNodeKind.STRING_TYPE};
     } else if (type.flags & TypeFlags.Number) {
-      return {type: types.NodeType.NUMBER};
+      return {type: types.GQLNodeKind.NUMBER};
     } else if (type.flags & TypeFlags.Boolean) {
-      return {type: types.NodeType.BOOLEAN};
+      return {type: types.GQLNodeKind.BOOLEAN_TYPE};
     } else {
       console.error(type);
       console.error(type.getSymbol()!.declarations![0].getSourceFile().fileName);
@@ -346,7 +346,7 @@ export default class Collector {
   _walkTypeReference(type:typescript.TypeReference):types.Node {
     if (type.target && type.target.getSymbol()!.name === 'Array') {
       return {
-        type: types.NodeType.ARRAY,
+        type: types.GQLNodeKind.ARRAY,
         elements: type.typeArguments!.map(this._walkType),
       };
     } else {
@@ -367,7 +367,7 @@ export default class Collector {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
-    (<types.ComplexNode>type).documentation = util.documentationForNode(node);
+    (<types.GraphQLNode>type).documentation = util.documentationForNode(node);
     this.types[name] = type;
     return type;
   }
@@ -399,21 +399,21 @@ export default class Collector {
   _referenceForSymbol(symbol:typescript.Symbol):types.ReferenceNode {
     this._walkSymbol(symbol);
     const referenced = this.types[this._nameForSymbol(symbol)];
-    if (referenced && referenced.type === types.NodeType.INTERFACE) {
+    if (referenced && referenced.kind === types.GQLNodeKind.INTERFACE_DEFINITION) {
       referenced.concrete = true;
     }
 
     return {
-      type: types.NodeType.REFERENCE,
+      type: types.GQLNodeKind.REFERENCE,
       target: this._nameForSymbol(symbol),
     };
   }
 
-  _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveNode {
+  _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveDefinitionNode {
     let directiveParams = {
-      type: types.NodeType.METHOD_PARAMS,
+      kind: types.GQLNodeKind.ARGUMENTS_DEFINITION,
       args: {},
-    } as types.MethodParamsNode;
+    } as types.DirectiveArguments;
     if (jsDocTag.description) {
       const parser = new MethodParamsParser();
       try {
@@ -424,22 +424,22 @@ export default class Collector {
       }
     }
     return {
-      type: types.NodeType.DIRECTIVE,
+      kind: types.GQLNodeKind.DIRECTIVE,
       name: jsDocTag.title,
-      params: directiveParams,
+      arguments?: directiveParams,
     };
   }
 
   _isNullable(node:types.Node):boolean {
-    if (node.type === types.NodeType.REFERENCE) {
+    if (node.type === types.GQLNodeKind.REFERENCE) {
       const referenced = this.types[node.target];
       if (!referenced) {
         return false;
       }
       return this._isNullable(referenced);
-    } else if (node.type === types.NodeType.ALIAS) {
+    } else if (node.type === types.GQLNodeKind.ALIAS) {
       return this._isNullable(node.target);
     }
-    return node.type !== types.NodeType.NOT_NULL;
+    return node.type !== types.GQLNodeKind.NON_NULL;
   }
 }
