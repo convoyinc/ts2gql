@@ -7,7 +7,7 @@ import * as util from './util';
 import Collector from './Collector';
 import Emitter from './Emitter';
 
-export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMap {
+export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeDefinitionMap {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
