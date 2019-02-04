@@ -1,7 +1,7 @@
 import Emitter from '../../src/Emitter';
 import * as types from '../../src/types';
 import * as ts2gql from '../../src/index';
-import { UnionNode, AliasNode, EnumNode } from '../../src/types';
+import { UnionNode, AliasNode, EnumNode, InterfaceNode } from '../../src/types';
 
 describe(`Emitter`, () => {
 
@@ -126,5 +126,47 @@ describe(`Emitter`, () => {
       const val = emitter._emitEnum(enumNode, 'Ordinal');
       expect(val).to.eq(expected);
     });
+
+    it(`emits deprecated directives for TypeScript interfaces`, () => {
+      const expected =
+`type DeprecatedNode @deprecated {
+  field: String
+}`;
+      const node = loadedTypes['DeprecatedNode'] as InterfaceNode;
+      const val = emitter._emitInterface(node, 'DeprecatedNode');
+      expect(val).to.eq(expected);
+    });
+
+    it(`emits decorated fields`, () => {
+      const expected =
+`type HasDeprecatedFields {
+  """
+  A bad method.
+  """
+  badMethod: String @deprecated
+  """
+  And a bad property.
+  """
+  badProperty: String @deprecated(reason: "Avoid this.")
+}`;
+      const node = loadedTypes['HasDeprecatedFields'] as InterfaceNode;
+      const val = emitter._emitInterface(node, 'HasDeprecatedFields');
+      expect(val).to.eq(expected);
+    });
+
+    it(`emits decorated enums and enum values`, () => {
+      const expected =
+`"""
+Both this enum and one of its values are deprecated.
+"""
+enum HasDeprecatedEnumValue @deprecated {
+  "This is what you want." USE_ME
+  NOT_ME @deprecated
+}`;
+      const node = loadedTypes['HasDeprecatedEnumValue'] as EnumNode;
+      const val = emitter._emitTopLevelNode(node, 'HasDeprecatedEnumValue');
+      expect(val).to.eq(expected);
+    });
+
   });
 });

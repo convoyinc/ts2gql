@@ -43,7 +43,12 @@ export interface AliasNode extends ComplexNode {
 
 export interface EnumNode extends ComplexNode {
   type:'enum';
-  values:string[];
+  values:EnumValueNode[];
+}
+
+export interface EnumValueNode extends ComplexNode {
+  type:'enum value';
+  key:string;
 }
 
 export interface UnionNode extends ComplexNode {
@@ -85,6 +90,7 @@ export type Node =
   PropertyNode |
   AliasNode |
   EnumNode |
+  EnumValueNode |
   UnionNode |
   LiteralObjectNode |
   StringLiteralNode |

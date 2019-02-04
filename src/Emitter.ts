@@ -18,17 +18,26 @@ export default class Emitter {
   }
 
   emitTopLevelNode(node:Types.Node, name:Types.SymbolName, stream:NodeJS.WritableStream) {
-    let content;
+    const content = this._emitTopLevelNode(node, name);
+    stream.write(`${content}\n\n`);
+  }
+
+  _emitTopLevelNode(node:Types.Node, name:Types.SymbolName) {
+    let content = '';
+    const description = this._getDescription(node);
+    if (description) {
+      content += this._blockString(description) + '\n';
+    }
     if (node.type === 'alias') {
-      content = this._emitAlias(node, name);
+      content += this._emitAlias(node, name);
     } else if (node.type === 'interface') {
-      content = this._emitInterface(node, name);
+      content += this._emitInterface(node, name);
     } else if (node.type === 'enum') {
-      content = this._emitEnum(node, name);
+      content += this._emitEnum(node, name);
     } else {
       throw new Error(`Don't know how to emit ${node.type} as a top level node`);
     }
-    stream.write(`${content}\n\n`);
+    return content;
   }
 
   // Preprocessing
@@ -40,7 +49,7 @@ export default class Emitter {
         this.renames[name] = node.target.target;
         return true;
       }
-    } else if (node.type === 'alias' && this._hasDocTag(node, 'ID')) {
+    } else if (node.type === 'alias' && this._hasDocTag(node, 'graphql', 'ID')) {
       this.renames[name] = 'ID';
       return true;
     }
@@ -64,10 +73,13 @@ export default class Emitter {
 
   _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
     if (_.every(node.types, entry => entry.type === 'string literal')) {
-      const nodeValues = node.types.map((type:Types.StringLiteralNode) => type.value);
+      const nodeValues = node.types.map((type:Types.StringLiteralNode) => <Types.EnumValueNode>({
+        type: 'enum value',
+        key: type.value,
+      }));
       return this._emitEnum({
         type: 'enum',
-        values: _.uniq(nodeValues),
+        values: _.uniqBy(nodeValues, v => v.key),
       }, this._name(name));
     }
 
@@ -126,6 +138,12 @@ export default class Emitter {
     }
 
     const properties = _.map(members, (member) => {
+      let result = '';
+      const description = this._getDescription(member);
+      if (description) {
+        result += this._blockString(description);
+        result += '\n';
+      }
       if (member.type === 'method') {
         let parameters = '';
         if (_.size(member.parameters) > 1) {
@@ -138,35 +156,49 @@ export default class Emitter {
           parameters = `(${this._emitExpression(argType)})`;
         }
         const returnType = this._emitExpression(member.returns);
-        return `${this._name(member.name)}${parameters}: ${returnType}`;
+        result += `${this._name(member.name)}${parameters}: ${returnType}`;
       } else if (member.type === 'property') {
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+        result += `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
+      result += this._emitDirectives(member);
+      return result;
     });
 
-    if (this._getDocTag(node, 'schema')) {
+    if (this._getDocTag(node, 'graphql', 'schema')) {
       return `schema {\n${this._indent(properties)}\n}`;
-    } else if (this._getDocTag(node, 'input')) {
-      return `input ${this._name(name)} {\n${this._indent(properties)}\n}`;
+    } else if (this._getDocTag(node, 'graphql', 'input')) {
+      return `input ${this._name(name)}${this._emitDirectives(node)} {\n${this._indent(properties)}\n}`;
     }
 
     if (node.concrete) {
-      return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
+      return `type ${this._name(name)}${this._emitDirectives(node)} {\n${this._indent(properties)}\n}`;
     }
 
-    let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
-    const fragmentDeclaration = this._getDocTag(node, 'fragment');
+    let output = `interface ${this._name(name)}${this._emitDirectives(node)} {\n${this._indent(properties)}\n}`;
+    const fragmentDeclaration = this._getDocTag(node, 'graphql', 'fragment');
     if (fragmentDeclaration) {
-      result = `${result}\n\n${fragmentDeclaration} {\n${this._indent(members.map((m:any) => m.name))}\n}`;
+      output = `${output}\n\n${fragmentDeclaration} {\n${this._indent(members.map((m:any) => m.name))}\n}`;
     }
-
-    return result;
+    return output;
   }
 
   _emitEnum(node:Types.EnumNode, name:Types.SymbolName):string {
-    return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
+    const values = node.values.map(v => this._emitEnumValue(v));
+    return `enum ${this._name(name)}${this._emitDirectives(node)} {\n${this._indent(values)}\n}`;
+  }
+
+  _emitEnumValue(node:Types.EnumValueNode):string {
+    let result = '';
+    const description = this._getDescription(node);
+    if (description) {
+      result += this._stringValue(description);
+      result += ' ';
+    }
+    result += node.key;
+    result += this._emitDirectives(node);
+    return result;
   }
 
   _emitExpression = (node:Types.Node):string => {
@@ -231,6 +263,21 @@ export default class Emitter {
     return members as Types.PropertyNode[];
   }
 
+  // Directives
+
+  _emitDirectives(node:Types.ComplexNode):string {
+    let directives = '';
+    const deprecated = this._getDocTag(node, 'deprecated');
+    if (deprecated !== null) {
+      directives += ' @deprecated';
+      const reason = deprecated.trim();
+      if (reason !== '') {
+        directives += `(reason: ${this._stringValue(reason)})`;
+      }
+    }
+    return directives;
+  }
+
   // Utility
 
   _name = (name:Types.SymbolName):string => {
@@ -238,12 +285,26 @@ export default class Emitter {
     return name.replace(/\W/g, '_');
   }
 
+  _stringValue(value:string):string {
+    // This is close enough for now.
+    // TODO: Escape properly as per https://facebook.github.io/graphql/draft/#sec-String-Value
+    return JSON.stringify(value);
+  }
+
+  _blockString(value:string):string {
+    // TODO: Properly encode "block strings".
+    // See: https://facebook.github.io/graphql/draft/#sec-String-Value
+    const s = this._stringValue(value);
+    return '"""\n' + s.substr(1, s.length - 2) + '\n"""';
+  }
+
   _isPrimitive(node:Types.Node):boolean {
     return node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'any';
   }
 
   _indent(content:string|string[]):string {
-    if (!_.isArray(content)) content = content.split('\n');
+    content = _.castArray(content);
+    content = _.flatMap(content, (s:string) => s.split('\n'));
     return content.map(s => `  ${s}`).join('\n');
   }
 
@@ -256,15 +317,22 @@ export default class Emitter {
     return _.uniq(interfaces);
   }
 
-  _hasDocTag(node:Types.ComplexNode, prefix:string):boolean {
-    return !!this._getDocTag(node, prefix);
+  _hasDocTag(node:Types.ComplexNode, title:string, prefix = ''):boolean {
+    return this._getDocTag(node, title, prefix) !== null;
   }
 
-  _getDocTag(node:Types.ComplexNode, prefix:string):string|null {
+  _getDescription(node:Types.Node):string|null {
+    const complexNode = node as Types.ComplexNode;
+    if (!complexNode.documentation) return null;
+    return complexNode.documentation.description;
+  }
+
+  _getDocTag(node:Types.ComplexNode, title:string, prefix = ''):string|null {
     if (!node.documentation) return null;
     for (const tag of node.documentation.tags) {
-      if (tag.title !== 'graphql') continue;
-      if (tag.description.startsWith(prefix)) return tag.description;
+      if (tag.title !== title) continue;
+      const description = tag.description || '';
+      if (description.startsWith(prefix)) return description;
     }
     return null;
   }
