@@ -151,8 +151,6 @@ describe(`Emitter`, () => {
 }`;
       const node = loadedTypes['HasDeprecatedFields'] as InterfaceNode;
       const val = emitter._emitInterface(node, 'HasDeprecatedFields');
-      console.log(val);
-      console.log(expected);
       expect(val).to.eq(expected);
     });
 

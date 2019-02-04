@@ -1,6 +1,5 @@
 import * as _ from 'lodash';
 
-import * as util from './util';
 import * as Types from './types';
 import { ReferenceNode } from './types';
 
@@ -74,7 +73,7 @@ export default class Emitter {
 
   _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
     if (_.every(node.types, entry => entry.type === 'string literal')) {
-      const nodeValues = node.types.map((type:Types.StringLiteralNode) => util.to<Types.EnumValueNode>({
+      const nodeValues = node.types.map((type:Types.StringLiteralNode) => <Types.EnumValueNode>({
         type: 'enum value',
         key: type.value,
       }));
@@ -139,7 +138,7 @@ export default class Emitter {
     }
 
     const properties = _.map(members, (member) => {
-      let result:string = '';
+      let result = '';
       const description = this._getDescription(member);
       if (description) {
         result += this._blockString(description);
@@ -304,9 +303,7 @@ export default class Emitter {
   }
 
   _indent(content:string|string[]):string {
-    if (!_.isArray(content)) {
-      content = [content];
-    }
+    content = _.castArray(content);
     content = _.flatMap(content, (s:string) => s.split('\n'));
     return content.map(s => `  ${s}`).join('\n');
   }

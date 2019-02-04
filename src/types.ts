@@ -47,8 +47,8 @@ export interface EnumNode extends ComplexNode {
 }
 
 export interface EnumValueNode extends ComplexNode {
-  type:'enum value'
-  key: string;
+  type:'enum value';
+  key:string;
 }
 
 export interface UnionNode extends ComplexNode {

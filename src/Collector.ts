@@ -204,7 +204,7 @@ export default class Collector {
            */
           key = _.trim(m.name.getText(), "'\"");
         }
-        return util.to<types.EnumValueNode>({
+        return <types.EnumValueNode>({
           type: 'enum value',
           key,
           documentation: util.documentationForNode(m),

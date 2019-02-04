@@ -13,9 +13,3 @@ export function documentationForNode(node:typescript.Node, source?:string):doctr
 
   return doctrine.parse(comment, {unwrap: true});
 }
-
-// Typed identity functino.
-// Useful for enforcing a type on a literal without risking an unsafe cast.
-export function to<T>(x: T): T {
-  return x;
-}
