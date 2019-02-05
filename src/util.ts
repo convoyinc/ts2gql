@@ -15,30 +15,6 @@ export function documentationForNode(node:typescript.Node, source?:string):doctr
   return doctrine.parse(comment, {unwrap: true});
 }
 
-export function isPrimitive(node:types.Node):boolean {
-  const unwrapped = unwrapNotNull(node);
-  return unwrapped.type === types.NodeType.STRING || unwrapped.type === types.NodeType.NUMBER
-  || unwrapped.type === types.NodeType.BOOLEAN || unwrapped.type === types.NodeType.ANY;
-}
-
-export function unwrapNotNull(node:types.Node):types.Node {
-  let unwrapped = node;
-  while (unwrapped.type === types.NodeType.NOT_NULL) {
-    unwrapped = unwrapped.node;
-  }
-  return unwrapped;
-}
-
-export function wrapNotNull(node:types.Node):types.NotNullNode {
-  if (node.type === types.NodeType.NOT_NULL) {
-    return node;
-  }
-  return {
-    type: types.NodeType.NOT_NULL,
-    node,
-  };
-}
-
 export function hasDocTag(node:types.TranspiledNode, prefix:string):boolean {
   return !!getDocTag(node, prefix);
 }
@@ -50,4 +26,33 @@ export function getDocTag(node:types.TranspiledNode, prefix:string):string|null 
     if (tag.description.startsWith(prefix)) return tag.description;
   }
   return null;
+}
+
+export function isOutputType(node:types.TypeNode):node is types.OutputTypeNode {
+  if (isWrappingType(node)) {
+    return isOutputType(node.wrapped);
+  }
+  return node.kind === types.GQLNodeKind.ENUM_TYPE || node.kind === types.GQLNodeKind.UNION_TYPE ||
+  node.kind === types.GQLNodeKind.INTERFACE_TYPE || node.kind === types.GQLNodeKind.OBJECT_TYPE || isScalar(node);
+}
+
+export function isInputType(node:types.TypeNode):node is types.InputTypeNode {
+  if (isWrappingType(node)) {
+    return isInputType(node.wrapped);
+  }
+  return node.kind === types.GQLNodeKind.ENUM_TYPE || node.kind === types.GQLNodeKind.INPUT_OBJECT_TYPE
+   || isScalar(node);
+}
+
+export function isScalar(node:types.TypeNode):node is types.ScalarTypeNode {
+  return node.kind === types.GQLNodeKind.CUSTOM_SCALAR_TYPE || isBuiltInScalar(node);
+}
+
+export function isBuiltInScalar(node:types.TypeNode):node is types.BuiltInScalarTypeNode {
+  return node.kind === types.GQLNodeKind.STRING_TYPE || node.kind === types.GQLNodeKind.INT_TYPE
+  || node.kind === types.GQLNodeKind.FLOAT_TYPE || node.kind === types.GQLNodeKind.BOOLEAN_TYPE;
+}
+
+export function isWrappingType(node:types.TypeNode):node is types.WrappingTypeNode {
+  return node.kind === types.GQLNodeKind.LIST_TYPE || node.kind === types.GQLNodeKind.NON_NULL_TYPE;
 }

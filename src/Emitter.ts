@@ -37,7 +37,7 @@ export default class Emitter {
 
     if (node.type === Types.NodeType.ALIAS && node.target.type === Types.NodeType.REFERENCE) {
       const referencedNode = this.types[node.target.target];
-      if (util.isPrimitive(referencedNode) || referencedNode.type === Types.NodeType.ENUM) {
+      if (util.isBuiltInScalar(referencedNode) || referencedNode.type === Types.NodeType.ENUM) {
         this.renames[name] = node.target.target;
         return true;
       }
@@ -58,7 +58,7 @@ export default class Emitter {
   _emitAlias(node:Types.AliasNode, name:Types.SymbolName):string {
     const aliasTarget = node.target.type === Types.NodeType.NOT_NULL ? node.target.node : node.target;
 
-    if (util.isPrimitive(aliasTarget)) {
+    if (util.isBuiltInScalar(aliasTarget)) {
       return this._emitScalarDefinition(name);
     } else if (aliasTarget.type === Types.NodeType.REFERENCE) {
       return `union ${this._name(name)} = ${this._emitReference(aliasTarget)}`;
@@ -86,7 +86,7 @@ export default class Emitter {
       }, this._name(name));
     }
 
-    if (node.types.length === 1 && util.isPrimitive(node.types[0])) {
+    if (node.types.length === 1 && util.isBuiltInScalar(node.types[0])) {
       // Since union of scalars is forbidden, interpret as a custom Scalar declaration
       return this._emitScalarDefinition(name);
     }
@@ -108,7 +108,7 @@ export default class Emitter {
       firstChildType = util.unwrapNotNull(firstChildType.target);
     }
 
-    if (util.isPrimitive(firstChildType)) {
+    if (util.isBuiltInScalar(firstChildType)) {
       throw new Error('GraphQL does not support unions with GraphQL Scalars');
     } else if (firstChildType.type === Types.NodeType.UNION) {
       throw new Error('GraphQL does not support unions with GraphQL Unions');
