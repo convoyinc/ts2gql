@@ -54,5 +54,5 @@ export function isBuiltInScalar(node:types.TypeNode):node is types.BuiltInScalar
 }
 
 export function isWrappingType(node:types.TypeNode):node is types.WrappingTypeNode {
-  return node.kind === types.GQLNodeKind.LIST_TYPE || node.kind === types.GQLNodeKind.NON_NULL_TYPE;
+  return node.kind === types.GQLNodeKind.LIST_TYPE;
 }

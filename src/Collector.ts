@@ -23,7 +23,7 @@ export default class Collector {
   }
 
   addRootNode(node:typescript.InterfaceDeclaration):void {
-    const collectedRoot = this._walkTypeDeclaration(node);
+    const collectedRoot = this._walkDeclaration(node);
     if (collectedRoot.kind === types.GQLNodeKind.INTERFACE_DEFINITION) {
       this.types[this._nameForSymbol(this._symbolForNode(node))] = this._concrete(collectedRoot);
     } else if (collectedRoot.kind !== types.GQLNodeKind.OBJECT_DEFINITION) {
@@ -52,7 +52,7 @@ export default class Collector {
   // TypeScript Node Walking
   //
 
-  _walkTypeDeclaration(node:typescript.Node):types.TypeDefinitionNode {
+  _walkDeclaration(node:typescript.Node):types.TypeDefinitionNode {
     if (this.nodeMap.has(node)) {
       return this.nodeMap.get(node)!;
     }
@@ -105,7 +105,7 @@ export default class Collector {
     } else if (declarations.length > 1) {
       throw new Error(`Conflicting declarations for symbol ${symbol.name}.`);
     }
-    return this._walkTypeDeclaration(declarations[0]);
+    return this._walkDeclaration(declarations[0]);
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.ReferenceTypeNode {
@@ -121,15 +121,15 @@ export default class Collector {
         result = this._walkType(parenthesizedNode.type);
         break;
       case SyntaxKind.ArrayType:
-        result = this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
+        result = this._collectList(node as typescript.ArrayTypeNode);
         break;
       case SyntaxKind.TypeReference:
         // TODO
-        result = this._walkTypeReferenceNode(<typescript.TypeReferenceNode>node);
+        result = this._walkTypeReferenceNode(node as typescript.TypeReferenceNode);
         break;
       case SyntaxKind.UnionType:
         // TODO
-        result = this._walkUnionTypeNode(<typescript.UnionTypeNode>node);
+        result = this._walkUnionTypeNode(node as typescript.UnionTypeNode);
         break;
       case SyntaxKind.StringKeyword:
       case SyntaxKind.NumberKeyword:
@@ -144,16 +144,6 @@ export default class Collector {
     }
 
     return result;
-  }
-
-  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.ListTypeNode {
-    return {
-      type: types.GQLNodeKind.NON_NULL_TYPE,
-      node: {
-        type: types.GQLNodeKind.ARRAY,
-        elements: [this._walkTypeDeclaration(node.elementType)],
-      },
-    };
   }
 
   //
@@ -180,7 +170,7 @@ export default class Collector {
       || definition.kind === types.GQLNodeKind.INTERFACE_DEFINITION;
     };
 
-    const ownFields:types.FieldDefinitionNode[] = node.members.map(member => {
+    const ownFields = node.members.map(member => {
       if (isInput) {
         return this._collectFieldDefinition(member, types.GQLTypeCategory.INPUT);
       }
@@ -223,8 +213,7 @@ export default class Collector {
   :types.InputFieldDefinitionNode;
   _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory.OUTPUT)
   :types.OutputFieldDefinitionNode;
-  _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory):types.InputFieldDefinitionNode |
-   types.OutputFieldDefinitionNode {
+  _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory):types.FieldDefinitionNode {
     let signature:typescript.MethodSignature|typescript.PropertySignature;
     let args;
     if (field.kind === SyntaxKind.MethodSignature || (field.kind === SyntaxKind.PropertySignature &&
@@ -234,7 +223,7 @@ export default class Collector {
         const msg = `GraphQL Input Objects Fields must not have argument lists.`;
         throw new Error(`At property '${signature.name.getText()}'\n${msg}`);
       }
-      args = this._collectParameterListDeclaration(signature.parameters);
+      args = this._collectArgumentsDefinition(signature.parameters);
     } else if (field.kind === SyntaxKind.PropertySignature) {
       signature = field as typescript.PropertySignature;
     } else {
@@ -242,23 +231,22 @@ export default class Collector {
     }
     const name = signature.name.getText();
 
-    let type = this._walkType(signature.type!);
+    const type = this._walkType(signature.type!);
     if (!util.isOutputType(type)) {
       const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
       const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
       const msg = `Argument lists accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
       throw new Error(`At property ${name}\n${msg}`);
     }
-    if (field.kind === SyntaxKind.PropertySignature && field.questionToken
-    && type.kind === types.GQLNodeKind.NON_NULL_TYPE) {
-        type = type.wrapped;
+    if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
+        type.nullable = false;
     }
 
     const documentation = util.documentationForNode(field);
-    let directiveList;
+    let directives;
     if (category === types.GQLTypeCategory.OUTPUT) {
       try {
-        directiveList = documentation ? this._collectDirectives(documentation) : [];
+        directives = documentation ? this._collectDirectives(documentation) : [];
       } catch (e) {
         e.message = `At property '${name}'\n${e.message}`;
         throw e;
@@ -272,11 +260,11 @@ export default class Collector {
       category,
       type,
       arguments: args,
-      directives: directiveList,
-    } as types.InputFieldDefinitionNode | types.OutputFieldDefinitionNode;
+      directives,
+    };
   }
 
-  _collectParameterListDeclaration(params:typescript.NodeArray<typescript.ParameterDeclaration>)
+  _collectArgumentsDefinition(params:typescript.NodeArray<typescript.ParameterDeclaration>)
   :types.ArgumentsDefinitionNode {
     return {
       kind: types.GQLNodeKind.ARGUMENTS_DEFINITION,
@@ -286,15 +274,15 @@ export default class Collector {
 
   _collectInputValueDefinition(param:typescript.ParameterDeclaration):types.InputValueDefinitionNode {
     const name = param.name.getText();
-    let collected = this._walkType(param.type!);
+    const collected = this._walkType(param.type!);
     if (!util.isInputType(collected)) {
       const kind = util.isWrappingType(collected) ? collected.wrapped.kind : collected.kind;
       const msg = `Argument lists accept only GraphQL Scalars, Enums and Input Object types. Got ${kind}.`;
       throw new Error(`At parameter ${name}\n${msg}`);
     }
-    if (param.questionToken && collected.kind === types.GQLNodeKind.NON_NULL_TYPE) {
-      collected = collected.wrapped;
-    }
+    if (param.questionToken) {
+      collected.nullable = true;
+  }
     return {
       name,
       kind: types.GQLNodeKind.INPUT_VALUE_DEFINITION,
@@ -314,7 +302,16 @@ export default class Collector {
 
     return {
       definitionTarget: name,
+      nullable: reference.kind === types.GQLNodeKind.UNION_DEFINITION ? reference.nullable : false,
       kind: types.DefinitionFromType[reference.kind],
+    };
+  }
+
+  _collectList(node:typescript.ArrayTypeNode):types.ListTypeNode {
+    return {
+      kind: types.GQLNodeKind.LIST_TYPE,
+      nullable: false,
+      wrapped: this._walkType(node.elementType),
     };
   }
 
@@ -322,14 +319,17 @@ export default class Collector {
     switch (kind) {
       case SyntaxKind.StringKeyword:
         return {
+          nullable: false,
           kind: types.GQLNodeKind.STRING_TYPE,
         };
       case SyntaxKind.BooleanKeyword:
         return {
+          nullable: false,
           kind: types.GQLNodeKind.BOOLEAN_TYPE,
         };
       case SyntaxKind.NumberKeyword:
         return {
+          nullable: false,
           kind: types.GQLNodeKind.FLOAT_TYPE,
         };
       default:
@@ -358,7 +358,7 @@ export default class Collector {
     // TODO : Deal with JSDoc
     return this._addTypeDefinition(node, () => ({
       type: types.GQLNodeKind.ALIAS,
-      target: this._walkTypeDeclaration(node.type),
+      target: this._walkDeclaration(node.type),
     }));
   }
 
@@ -409,7 +409,7 @@ export default class Collector {
   }
 
   _walkUnionTypeNode(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
-    const unionMembers = node.types.map(this._walkTypeDeclaration);
+    const unionMembers = node.types.map(this._walkDeclaration);
     const withoutNull = unionMembers.filter((member:types.Node):boolean => {
       return member.type !== types.GQLNodeKind.NULL && member.type !== types.GQLNodeKind.UNDEFINED;
     });

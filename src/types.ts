@@ -32,7 +32,6 @@ export enum GQLNodeKind {
   DIRECTIVE = 'directive',
   DIRECTIVE_INPUT_VALUE_DEFINITION = 'directive input value definition',
   // Wrapping Types
-  NON_NULL_TYPE = 'non null',
   LIST_TYPE = 'list',
   // Types
   REFERENCE = 'reference',
@@ -55,8 +54,15 @@ export enum GQLNodeKind {
 //
 // Abstractions
 //
-export interface NamedNode extends GraphQLNode {
+interface NamedNode extends GraphQLNode {
   name:SymbolName;
+}
+
+interface NullableNode extends GraphQLNode {
+  nullable:boolean;
+}
+interface ReferenceNode extends NullableNode {
+  definitionTarget:SymbolName;
 }
 
 //
@@ -90,7 +96,7 @@ export interface InputObjectTypeDefinition extends NamedNode {
   fields:InputFieldDefinitionNode[];
 }
 
-export interface UnionTypeDefinitionNode extends NamedNode {
+export interface UnionTypeDefinitionNode extends NamedNode, NullableNode {
   kind:GQLNodeKind.UNION_DEFINITION;
   members:ObjectTypeNode[];
 }
@@ -159,40 +165,32 @@ export type NamedInputTypeNode = ScalarTypeNode | EnumTypeNode | InputObjectType
 export type NamedOutputTypeNode = ScalarTypeNode | ObjectTypeNode | InterfaceTypeNode | UnionTypeNode | EnumTypeNode;
 type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode;
 
-export type WrappingInputTypeNode = NonNullInputTypeNode | ListInputTypeNode;
-export type WrappingOutputTypeNode = NonNullOutputTypeNode | ListOutputTypeNode;
-export type WrappingTypeNode = WrappingInputTypeNode | WrappingOutputTypeNode;
+export type WrappingInputTypeNode = ListInputTypeNode;
+export type WrappingOutputTypeNode = ListOutputTypeNode;
+export type WrappingTypeNode = ListInputTypeNode | ListOutputTypeNode | ListTypeNode;
 
 export type InputTypeNode = NamedInputTypeNode | WrappingInputTypeNode;
 export type OutputTypeNode = NamedOutputTypeNode | WrappingOutputTypeNode;
-export type TypeNode = InputTypeNode | OutputTypeNode;
+export type TypeNode = NamedTypeNode | WrappingTypeNode;
 
 // Wrapping Types
 
-interface WrappingNode<T extends GraphQLNode> extends GraphQLNode {
+interface WrappingNode<T extends GraphQLNode> extends NullableNode {
   wrapped:T;
 }
 
-export interface NonNullTypeNode<T extends NamedTypeNode> extends WrappingNode<T | ListNode<T>> {
-  kind:GQLNodeKind.NON_NULL_TYPE;
-}
-
-export type NonNullInputTypeNode = NonNullTypeNode<NamedInputTypeNode>;
-export type NonNullOutputTypeNode = NonNullTypeNode<NamedOutputTypeNode>;
-
-interface ListNode<T extends NamedTypeNode> extends WrappingNode<T | NonNullTypeNode<T> | ListNode<T>> {
+export interface ListNode<T extends NamedTypeNode> extends WrappingNode<T | ListNode<T>> {
   kind:GQLNodeKind.LIST_TYPE;
 }
 
-type ListInputTypeNode = ListNode<NamedInputTypeNode>;
-type ListOutputTypeNode = ListNode<NamedOutputTypeNode>;
-export type ListTypeNode = ListInputTypeNode | ListOutputTypeNode;
+export type ListInputTypeNode = ListNode<NamedInputTypeNode>;
+export type ListOutputTypeNode = ListNode<NamedOutputTypeNode>;
+export type ListTypeNode = ListNode<NamedTypeNode>;
 
 // Named Types
 
-export interface ReferenceTypeNode extends GraphQLNode {
-  definitionTarget:SymbolName;
-}
+export type ReferenceTypeNode = ObjectTypeNode | InterfaceTypeNode | EnumTypeNode | InputObjectTypeNode | UnionTypeNode
+| CustomScalarTypeNode;
 
 export const DefinitionFromType = {
   [GQLNodeKind.OBJECT_DEFINITION]:GQLNodeKind.OBJECT_TYPE,
@@ -202,51 +200,51 @@ export const DefinitionFromType = {
   [GQLNodeKind.SCALAR_DEFINITION]:GQLNodeKind.CUSTOM_SCALAR_TYPE,
 };
 
-export interface ObjectTypeNode extends ReferenceTypeNode {
+export interface ObjectTypeNode extends ReferenceNode {
   kind:GQLNodeKind.OBJECT_TYPE;
 }
 
-export interface InterfaceTypeNode extends ReferenceTypeNode {
+export interface InterfaceTypeNode extends ReferenceNode {
   kind:GQLNodeKind.INTERFACE_TYPE;
 }
 
-export interface EnumTypeNode extends ReferenceTypeNode {
+export interface EnumTypeNode extends ReferenceNode {
   kind:GQLNodeKind.ENUM_TYPE;
 }
 
-export interface InputObjectTypeNode extends ReferenceTypeNode {
+export interface InputObjectTypeNode extends ReferenceNode {
   kind:GQLNodeKind.INPUT_OBJECT_TYPE;
 }
 
-export interface UnionTypeNode extends ReferenceTypeNode {
+export interface UnionTypeNode extends ReferenceNode {
   kind:GQLNodeKind.UNION_TYPE;
 }
 
 // Scalar Types
 
-export interface CustomScalarTypeNode extends ReferenceTypeNode {
+export interface CustomScalarTypeNode extends ReferenceNode {
   kind:GQLNodeKind.CUSTOM_SCALAR_TYPE;
 }
 
-export interface StringTypeNode extends GraphQLNode {
+export interface StringTypeNode extends NullableNode {
   kind:GQLNodeKind.STRING_TYPE;
 }
 
-export interface IntTypeNode extends GraphQLNode {
+export interface IntTypeNode extends NullableNode {
   kind:GQLNodeKind.INT_TYPE;
 }
 
-export interface FloatTypeNode extends GraphQLNode {
+export interface FloatTypeNode extends NullableNode {
   kind:GQLNodeKind.FLOAT_TYPE;
 }
 
 type NumberTypeNode = IntTypeNode | FloatTypeNode;
 
-export interface BooleanTypeNode extends GraphQLNode {
+export interface BooleanTypeNode extends NullableNode {
   kind:GQLNodeKind.BOOLEAN_TYPE;
 }
 
-export interface IDTypeNode extends GraphQLNode {
+export interface IDTypeNode extends NullableNode {
   kind:GQLNodeKind.ID_TYPE;
 }
 
