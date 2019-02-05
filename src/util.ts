@@ -38,3 +38,16 @@ export function wrapNotNull(node:types.Node):types.NotNullNode {
     node,
   };
 }
+
+export function hasDocTag(node:types.TranspiledNode, prefix:string):boolean {
+  return !!getDocTag(node, prefix);
+}
+
+export function getDocTag(node:types.TranspiledNode, prefix:string):string|null {
+  if (!node.documentation) return null;
+  for (const tag of node.documentation.tags) {
+    if (tag.title !== 'graphql') continue;
+    if (tag.description.startsWith(prefix)) return tag.description;
+  }
+  return null;
+}

@@ -1,3 +1,4 @@
+import * as doctrine from 'doctrine';
 import * as _ from 'lodash';
 import * as typescript from 'typescript';
 import * as path from 'path';
@@ -20,7 +21,10 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeDe
       interfaces[interfaceNode.name.text] = interfaceNode;
 
       const documentation = util.documentationForNode(interfaceNode, schemaRoot.text);
-      if (documentation && _.find(documentation.tags, {title: 'graphql', description: 'schema'})) {
+      const isSchemaRoot = documentation && _.find(documentation.tags, (tag:doctrine.Tag) => {
+        return tag.title === 'graphql' && /^[Ss]chema$/.test(tag.description);
+      });
+      if (isSchemaRoot) {
         rootNodeNames.push(interfaceNode.name.text);
       }
     }
@@ -40,7 +44,9 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeDe
   _.each(interfaces, (node, name) => {
     const documentation = util.documentationForNode(node);
     if (!documentation) return;
-    const override = _.find(documentation.tags, t => t.title === 'graphql' && t.description.startsWith('override'));
+    const override = _.find(documentation.tags, (tag:doctrine.Tag) => {
+      return tag.title === 'graphql' && /^[Oo]verride$/.test(tag.description);
+    });
     if (!override) return;
     const overrideName = override.description.split(' ')[1] || name!;
     collector.mergeOverrides(node, overrideName);

@@ -16,26 +16,33 @@ const TypeFlags = typescript.TypeFlags;
 export default class Collector {
   types:types.TypeDefinitionMap = {};
   private checker:typescript.TypeChecker;
-  private nodeMap:Map<typescript.Node, types.Node> = new Map();
+  private nodeMap:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
 
   constructor(program:typescript.Program) {
     this.checker = program.getTypeChecker();
   }
 
   addRootNode(node:typescript.InterfaceDeclaration):void {
-    this._walkNode(node);
-    const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
-    simpleNode.concrete = true;
+    const collectedRoot = this._walkTypeDefinition(node);
+    if (collectedRoot.kind === types.GQLNodeKind.INTERFACE_DEFINITION) {
+      this.types[this._nameForSymbol(this._symbolForNode(node))] = this._concrete(collectedRoot);
+    } else if (collectedRoot.kind !== types.GQLNodeKind.OBJECT_DEFINITION) {
+      throw new Error(`Expected root definition ${node.name.getText()} as GraphQL Object definition.`
+      + `Got ${collectedRoot.kind}. `);
+    }
   }
 
   mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
-    const existing = <types.InterfaceNode>this.types[name];
+    const existing = this.types[name];
     if (!existing) {
       throw new Error(`Cannot override '${name}' - it was never included`);
+    } else if (existing.kind !== types.GQLNodeKind.OBJECT_DEFINITION
+      && existing.kind !== types.GQLNodeKind.INTERFACE_DEFINITION) {
+        throw new Error(`Cannot override '${name}' - it is not a GraphQL Type or Interface`);
     }
-    const overrides = <types.FieldNode[]>node.members.map(this._walkNode);
-    const overriddenNames = new Set(overrides.map(o => (<any>o).name));
-    existing.members = _(existing.members)
+    const overrides = node.members.map(member => this._collectFieldDefinition<types.OutputFieldDefinitionNode>(member));
+    const overriddenNames = new Set(overrides.map(prop => prop.name));
+    existing.fields = _(existing.fields)
       .filter(m => !overriddenNames.has(m.name))
       .concat(overrides)
       .value();
@@ -43,7 +50,121 @@ export default class Collector {
 
   // Node Walking
 
-  _walkNode = (node:typescript.Node):types.Node => {
+  _walkTypeDefinition = (node:typescript.Node):types.TypeDefinitionNode => {
+    if (this.nodeMap.has(node)) {
+      return this.nodeMap.get(node)!;
+    }
+    const typeDefinition = {} as types.TypeDefinitionNode;
+    this.nodeMap.set(node, typeDefinition);
+    let result = null as types.TypeDefinitionNode | null;
+
+    switch (node.kind) {
+      case SyntaxKind.InterfaceDeclaration:
+        result = this._collectInterfaceDeclaration(node as typescript.InterfaceDeclaration);
+        break;
+      case SyntaxKind.TypeAliasDeclaration:
+        result = this._collectTypeAliasDeclaration(node as typescript.TypeAliasDeclaration);
+        break;
+      case SyntaxKind.EnumDeclaration:
+        result = this._collectEnumDeclaration(node as typescript.EnumDeclaration);
+        break;
+      default:
+        // TODO : Verify this
+        console.error(node);
+        console.error(`On file ${node.getSourceFile().fileName}`);
+        console.error(`On line ${node.getSourceFile().getStart()}`);
+        throw new Error(`Don't know how to handle Type Definition from TypeScript ${SyntaxKind[node.kind]} nodes`);
+    }
+
+    if (result) {
+      Object.assign(typeDefinition, result);
+    }
+    return typeDefinition;
+  }
+
+  _walkSymbolDeclaration = (symbol:typescript.Symbol):types.TypeDefinitionNode[] => {
+    return _.map(symbol.getDeclarations(), d => this._walkTypeDefinition(d));
+  }
+
+  _collectInterfaceDeclaration(node:typescript.InterfaceDeclaration)
+  :types.InterfaceTypeDefinitionNode | types.InputObjectTypeDefinition {
+    const documentation = util.documentationForNode(node);
+    const name = this._nameForSymbol(this._symbolForNode(node.name));
+    const inherits = this._collectInherited(node);
+
+    const isInput = !!documentation && !!_.find(documentation.tags, (tag:doctrine.Tag) => {
+      return tag.title === 'graphql' && /^[Ii]nput$/.test(tag.description);
+    });
+
+    const inheritedDefinitionChecker = isInput ?
+    (definition:types.TypeDefinitionNode):definition is types.InputObjectTypeDefinition => {
+      return definition.kind === types.GQLNodeKind.INPUT_OBJECT_DEFINITION;
+    }
+    : (definition:types.TypeDefinitionNode):definition is types.ObjectTypeDefinitionNode |
+    types.InterfaceTypeDefinitionNode => {
+      return definition.kind === types.GQLNodeKind.OBJECT_DEFINITION
+      || definition.kind === types.GQLNodeKind.INTERFACE_DEFINITION;
+    };
+
+    const ownFields:types.FieldDefinitionNode[] = isInput ?
+    node.members.map(member => this._collectFieldDefinition<types.InputFieldDefinitionNode>(member))
+    : node.members.map(member => this._collectFieldDefinition<types.OutputFieldDefinitionNode>(member));
+
+    const inheritedFields = _.flatten(inherits.map((inheritedName:string) => {
+      const inheritedDefinition = this.types[inheritedName];
+      if (!inheritedDefinitionChecker(inheritedDefinition)) {
+          const expectedType = isInput ? types.GQLNodeKind.INPUT_OBJECT_DEFINITION
+          : `${types.GQLNodeKind.OBJECT_DEFINITION} or ${types.GQLNodeKind.INTERFACE_DEFINITION}` ;
+          throw new Error(`Incompatible inheritance between '${name}' and '${inheritedDefinition.name}'.`
+          + ` Expected type '${expectedType}', got '${inheritedDefinition.kind}'.`);
+      }
+      return inheritedDefinition.fields as types.FieldDefinitionNode[];
+    }));
+
+    const inheritedPropNames = inheritedFields.map(field => field.name);
+    if (_.uniq(inheritedPropNames).length !== inheritedPropNames.length) {
+      throw new Error(`There are conflicting properties between TypeScript interfaces inherited by '${name}'.`);
+    }
+
+    const ownFieldNames = new Set(ownFields.map(field => field.name));
+    const mergedFields = _.concat(ownFields, inheritedFields.filter((inheritedField) => {
+      return !ownFieldNames.has(inheritedField.name);
+    }));
+
+    const collected = {
+      documentation,
+      name,
+      fields: mergedFields,
+    } as types.InterfaceTypeDefinitionNode | types.InputObjectTypeDefinition;
+    collected.kind = isInput ? types.GQLNodeKind.INPUT_OBJECT_DEFINITION : types.GQLNodeKind.INTERFACE_DEFINITION;
+    return this._addTypeDefinition(collected);
+  }
+
+  _collectInherited(node:typescript.InterfaceDeclaration):string[] {
+    const inherits:string[] = [];
+    if (node.heritageClauses) {
+      for (const clause of node.heritageClauses) {
+        for (const type of clause.types) {
+          const symbol = this._symbolForNode(type.expression);
+          this._walkSymbolDeclaration(symbol);
+          inherits.push(this._nameForSymbol(symbol));
+        }
+      }
+    }
+    return inherits;
+  }
+
+  _collectFieldDefinition<T extends types.FieldDefinitionNode>(field:typescript.TypeElement):T {
+    if (field.kind === SyntaxKind.MethodSignature) {
+
+    } else if (field.kind === SyntaxKind.PropertySignature) {
+
+    } else {
+      throw new Error(`TypeScript ${field.kind} doesn't have a valid Field Signature.`);
+    }
+  }
+
+  _walkTypeDefinition = (node:typescript.Node):types.Node => {
     // Reentrant node walking.
     if (this.nodeMap.has(node)) {
       return this.nodeMap.get(node) as types.Node;
@@ -53,23 +174,17 @@ export default class Collector {
     const doc =  util.documentationForNode(node);
 
     let result:types.Node|null = null;
-    if (node.kind === SyntaxKind.InterfaceDeclaration) {
-      result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
-    } else if (node.kind === SyntaxKind.MethodSignature) {
+    if (node.kind === SyntaxKind.MethodSignature) {
       result = this._walkMethodSignature(<typescript.MethodSignature>node, doc);
     } else if (node.kind === SyntaxKind.PropertySignature) {
       result = this._walkPropertySignature(<typescript.PropertySignature>node, doc);
     } else if (node.kind === SyntaxKind.TypeReference) {
       result = this._walkTypeReferenceNode(<typescript.TypeReferenceNode>node);
-    } else if (node.kind === SyntaxKind.TypeAliasDeclaration) {
-      result = this._walkTypeAliasDeclaration(<typescript.TypeAliasDeclaration>node);
-    } else if (node.kind === SyntaxKind.EnumDeclaration) {
-      result = this._walkEnumDeclaration(<typescript.EnumDeclaration>node);
     } else if (node.kind === SyntaxKind.TypeLiteral) {
       result = this._walkTypeLiteralNode(<typescript.TypeLiteralNode>node);
     } else if (node.kind === SyntaxKind.ParenthesizedType) {
       const parenthesizedNode = node as typescript.ParenthesizedTypeNode;
-      result = this._walkNode(parenthesizedNode.type);
+      result = this._walkTypeDefinition(parenthesizedNode.type);
     } else if (node.kind === SyntaxKind.ArrayType) {
       result = this._walkArrayTypeNode(<typescript.ArrayTypeNode>node);
     } else if (node.kind === SyntaxKind.UnionType) {
@@ -85,16 +200,6 @@ export default class Collector {
       result = {type: types.GQLNodeKind.NON_NULL, node: {type: types.GQLNodeKind.NUMBER}};
     } else if (node.kind === SyntaxKind.BooleanKeyword) {
       result = {type: types.GQLNodeKind.NON_NULL, node: {type: types.GQLNodeKind.BOOLEAN_TYPE}};
-    } else if (node.kind === SyntaxKind.AnyKeyword) {
-      result = { type: types.GQLNodeKind.ANY};
-    } else if (node.kind === SyntaxKind.NullKeyword) {
-      result = {type: types.GQLNodeKind.NULL};
-    } else if (node.kind === SyntaxKind.UndefinedKeyword) {
-      result = {type: types.GQLNodeKind.UNDEFINED};
-    } else if (node.kind === SyntaxKind.ModuleDeclaration) {
-      // Nada.
-    } else if (node.kind === SyntaxKind.VariableDeclaration) {
-      // Nada.
     } else {
       console.error(node);
       console.error(node.getSourceFile().fileName);
@@ -107,40 +212,10 @@ export default class Collector {
     return nodeReference;
   }
 
-  _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
-    return _.map(symbol.getDeclarations(), d => this._walkNode(d));
-  }
-
-  _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
-    // TODO: How can we determine for sure that this is the global date?
-    if (node.name.text === 'Date') {
-      return {type: types.GQLNodeKind.REFERENCE, target: 'Date'};
-    }
-
-    return this._addType(node, () => {
-      const inherits = [];
-      if (node.heritageClauses) {
-        for (const clause of node.heritageClauses) {
-          for (const type of clause.types) {
-            const symbol = this._symbolForNode(type.expression);
-            this._walkSymbol(symbol);
-            inherits.push(this._nameForSymbol(symbol));
-          }
-        }
-      }
-
-      return {
-        type: types.GQLNodeKind.INTERFACE_DEFINITION,
-        members: <types.FieldNode[]>node.members.map(this._walkNode),
-        inherits,
-      };
-    });
-  }
-
   _walkMethodSignature(node:typescript.MethodSignature, doc:doctrine.ParseResult | undefined):types.Node {
     try {
       const parameters:types.DirectiveArguments = this._walkMethodParams(node.parameters);
-      const collectedReturn = this._walkNode(node.type!);
+      const collectedReturn = this._walkTypeDefinition(node.type!);
       const directiveList = doc ? this._retrieveDirectives(doc) : [];
       return {
         type: types.GQLNodeKind.FIELD_DEFINITION,
@@ -175,7 +250,7 @@ export default class Collector {
   _walkMethodParams(paramNodes:typescript.NodeArray<typescript.ParameterDeclaration>):types.DirectiveArguments {
     const argNodes:types.TypeDefinitionMap = {};
     for (const paramNode of paramNodes) {
-      const collectedNode = this._walkNode(paramNode.type!);
+      const collectedNode = this._walkTypeDefinition(paramNode.type!);
       argNodes[paramNode.name.getText()] = (paramNode.questionToken || this._isNullable(collectedNode)) ?
       util.unwrapNotNull(collectedNode) : util.wrapNotNull(collectedNode);
     }
@@ -196,7 +271,7 @@ export default class Collector {
         node.questionToken,
       ), doc);
     }
-    const signature = this._walkNode(nodeType);
+    const signature = this._walkTypeDefinition(nodeType);
     return {
       type: types.GQLNodeKind.PROPERTY,
       name: node.name.getText(),
@@ -209,15 +284,17 @@ export default class Collector {
     return this._referenceForSymbol(this._symbolForNode(node.typeName));
   }
 
-  _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
-    return this._addType(node, () => ({
+  _collectTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
+    // TODO : Deal with JSDoc
+    return this._addTypeDefinition(node, () => ({
       type: types.GQLNodeKind.ALIAS,
-      target: this._walkNode(node.type),
+      target: this._walkTypeDefinition(node.type),
     }));
   }
 
-  _walkEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
-    return this._addType(node, () => {
+  _collectEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
+    // TODO : Deal with JSDoc
+    return this._addTypeDefinition(node, () => {
       const values = node.members.map(m => {
         // If the user provides an initializer, use the value of the initializer
         // as the GQL enum value _unless_ the initializer is a numeric literal.
@@ -264,7 +341,7 @@ export default class Collector {
   _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
     return {
       type: types.GQLNodeKind.LITERAL_OBJECT,
-      members: node.members.map(this._walkNode),
+      members: node.members.map(this._walkTypeDefinition),
     };
   }
 
@@ -273,13 +350,13 @@ export default class Collector {
       type: types.GQLNodeKind.NON_NULL,
       node: {
         type: types.GQLNodeKind.ARRAY,
-        elements: [this._walkNode(node.elementType)],
+        elements: [this._walkTypeDefinition(node.elementType)],
       },
     };
   }
 
   _walkUnionTypeNode(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
-    const unionMembers = node.types.map(this._walkNode);
+    const unionMembers = node.types.map(this._walkTypeDefinition);
     const withoutNull = unionMembers.filter((member:types.Node):boolean => {
       return member.type !== types.GQLNodeKind.NULL && member.type !== types.GQLNodeKind.UNDEFINED;
     });
@@ -329,7 +406,7 @@ export default class Collector {
     } else if (type.flags & TypeFlags.BooleanLike) {
       return this._walkInterfaceType(<typescript.InterfaceType>type);
     } else if (type.flags & TypeFlags.Index) {
-      return this._walkNode(type.getSymbol()!.declarations![0]);
+      return this._walkTypeDefinition(type.getSymbol()!.declarations![0]);
     } else if (type.flags & TypeFlags.String) {
       return {type: types.GQLNodeKind.STRING_TYPE};
     } else if (type.flags & TypeFlags.Number) {
@@ -360,16 +437,14 @@ export default class Collector {
 
   // Utility
 
-  _addType(
-    node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration,
-    typeBuilder:() => types.Node,
-  ):types.Node {
-    const name = this._nameForSymbol(this._symbolForNode(node.name));
-    if (this.types[name]) return this.types[name];
-    const type = typeBuilder();
-    (<types.GraphQLNode>type).documentation = util.documentationForNode(node);
-    this.types[name] = type;
-    return type;
+  _addTypeDefinition<T extends types.TypeDefinitionNode>(typeDefinition:T):T {
+    const name = typeDefinition.name;
+    const defined = this.types[name];
+    if (defined) {
+      throw new Error(`Conflicting references for symbol ${name}.`
+      + `Defined as ${defined.kind} and ${typeDefinition.kind}.`);
+    }
+    return this.types[name] = typeDefinition;
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {
@@ -397,7 +472,7 @@ export default class Collector {
   }
 
   _referenceForSymbol(symbol:typescript.Symbol):types.ReferenceNode {
-    this._walkSymbol(symbol);
+    this._walkSymbolDeclaration(symbol);
     const referenced = this.types[this._nameForSymbol(symbol)];
     if (referenced && referenced.kind === types.GQLNodeKind.INTERFACE_DEFINITION) {
       referenced.concrete = true;
@@ -406,6 +481,17 @@ export default class Collector {
     return {
       type: types.GQLNodeKind.REFERENCE,
       target: this._nameForSymbol(symbol),
+    };
+  }
+
+  _concrete(node:types.InterfaceTypeDefinitionNode):types.ObjectTypeDefinitionNode {
+    return {
+      documentation: node.documentation,
+      originalLine: node.originalLine,
+      originalColumn: node.originalColumn,
+      kind: types.GQLNodeKind.OBJECT_DEFINITION,
+      name: node.name,
+      fields: node.fields,
     };
   }
 

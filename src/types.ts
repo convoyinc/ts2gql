@@ -1,3 +1,4 @@
+import { NamedInputTypeNode, FieldDefinitionNode } from './types';
 import * as doctrine from 'doctrine';
 import { MethodParamsParser } from './Parser';
 
@@ -18,7 +19,7 @@ export interface GraphQLNode extends TranspiledNode {
 
 export enum GQLNodeKind {
   // Type Definitions
-  TYPE_DEFINITION = 'type definition',
+  OBJECT_DEFINITION = 'object definition',
   INTERFACE_DEFINITION = 'interface definition',
   ENUM_DEFINITION = 'enum definition',
   INPUT_OBJECT_DEFINITION = 'input object definition',
@@ -54,7 +55,7 @@ export enum GQLNodeKind {
 //
 // Abstractions
 //
-interface NamedNode extends GraphQLNode {
+export interface NamedNode extends GraphQLNode {
   name:SymbolName;
 }
 
@@ -70,14 +71,16 @@ export interface SchemaDefinitionNode extends GraphQLNode {
 // Type Definitions
 //
 export interface ObjectTypeDefinitionNode extends NamedNode {
-  kind:GQLNodeKind.TYPE_DEFINITION;
-  fields:FieldDefinitionNode<OutputNamedTypeNode>[];
+  kind:GQLNodeKind.OBJECT_DEFINITION;
+  fields:OutputFieldDefinitionNode[];
 }
 
 export interface InterfaceTypeDefinitionNode extends NamedNode {
   kind:GQLNodeKind.INTERFACE_DEFINITION;
-  fields:FieldDefinitionNode<OutputNamedTypeNode>[];
+  fields:OutputFieldDefinitionNode[];
 }
+
+export type DerivedFromTSInterface = Object
 
 export interface EnumTypeDefinitionNode extends NamedNode {
   kind:GQLNodeKind.ENUM_DEFINITION;
@@ -86,7 +89,7 @@ export interface EnumTypeDefinitionNode extends NamedNode {
 
 export interface InputObjectTypeDefinition extends NamedNode {
   kind:GQLNodeKind.INPUT_OBJECT_DEFINITION;
-  fields:FieldDefinitionNode<InputNamedTypeNode>[];
+  fields:InputFieldDefinitionNode[];
 }
 
 export interface UnionTypeDefinitionNode extends NamedNode {
@@ -107,11 +110,19 @@ export type TypeDefinitionMap = {[key:string]:TypeDefinitionNode};
 // Other Definitions
 //
 
-export interface FieldDefinitionNode<T extends InputNamedTypeNode | OutputNamedTypeNode> extends NamedNode {
+export interface FieldDefinitionNode extends NamedNode {
   kind:GQLNodeKind.FIELD_DEFINITION;
-  type:T;
+  type:NamedTypeNode;
   arguments?:ArgumentsDefinitionNode;
   directives?:DirectiveDefinitionNode[];
+}
+
+export interface InputFieldDefinitionNode extends FieldDefinitionNode {
+  type:NamedInputTypeNode;
+}
+
+export interface OutputFieldDefinitionNode extends FieldDefinitionNode {
+  type:NamedOutputTypeNode;
 }
 
 export interface ArgumentsDefinitionNode extends GraphQLNode {
@@ -140,15 +151,15 @@ export interface DirectiveInputValueNode extends NamedNode {
 
 // General definitions
 
-type InputNamedTypeNode = ScalarTypeNode | EnumTypeNode | InputObjectTypeNode;
-type OutputNamedTypeNode = ScalarTypeNode | ObjectTypeNode | InterfaceTypeNode | UnionTypeNode | EnumTypeNode;
-type NamedTypeNode = InputNamedTypeNode | OutputNamedTypeNode;
+export type NamedInputTypeNode = ScalarTypeNode | EnumTypeNode | InputObjectTypeNode;
+export type NamedOutputTypeNode = ScalarTypeNode | ObjectTypeNode | InterfaceTypeNode | UnionTypeNode | EnumTypeNode;
+type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode;
 
-type InputWrappingTypeNode = NonNullInputTypeNode | ListInputTypeNode;
-type OutputWrappingTypeNode = NonNullOutputTypeNode | ListOutputTypeNode;
+type WrappingInputTypeNode = NonNullInputTypeNode | ListInputTypeNode;
+type WrappingOutputTypeNode = NonNullOutputTypeNode | ListOutputTypeNode;
 
-type InputTypeNode = InputNamedTypeNode | InputWrappingTypeNode;
-type OutputTypeNode = OutputNamedTypeNode | OutputWrappingTypeNode;
+type InputTypeNode = NamedInputTypeNode | WrappingInputTypeNode;
+type OutputTypeNode = NamedOutputTypeNode | WrappingOutputTypeNode;
 type TypeNode = InputTypeNode | OutputTypeNode;
 
 // Wrapping Types
@@ -161,15 +172,15 @@ export interface NonNullTypeNode<T extends NamedTypeNode> extends WrappingTypeNo
   kind:GQLNodeKind.NON_NULL;
 }
 
-export type NonNullInputTypeNode = NonNullTypeNode<InputNamedTypeNode>;
-export type NonNullOutputTypeNode = NonNullTypeNode<OutputNamedTypeNode>;
+export type NonNullInputTypeNode = NonNullTypeNode<NamedInputTypeNode>;
+export type NonNullOutputTypeNode = NonNullTypeNode<NamedOutputTypeNode>;
 
 interface ListTypeNode<T extends NamedTypeNode> extends WrappingTypeNode<T | NonNullTypeNode<T> | ListTypeNode<T>> {
   kind:GQLNodeKind.LIST;
 }
 
-export type ListInputTypeNode = ListTypeNode<InputNamedTypeNode>;
-export type ListOutputTypeNode = ListTypeNode<OutputNamedTypeNode>;
+export type ListInputTypeNode = ListTypeNode<NamedInputTypeNode>;
+export type ListOutputTypeNode = ListTypeNode<NamedOutputTypeNode>;
 
 // Named Types
 

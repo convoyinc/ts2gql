@@ -334,17 +334,4 @@ export default class Emitter {
     return _.uniq(interfaces);
   }
 
-  _hasDocTag(node:Types.ComplexNode, prefix:string):boolean {
-    return !!this._getDocTag(node, prefix);
-  }
-
-  _getDocTag(node:Types.ComplexNode, prefix:string):string|null {
-    if (!node.documentation) return null;
-    for (const tag of node.documentation.tags) {
-      if (tag.title !== 'graphql') continue;
-      if (tag.description.startsWith(prefix)) return tag.description;
-    }
-    return null;
-  }
-
 }
