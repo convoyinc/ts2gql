@@ -354,7 +354,8 @@ export default class Collector {
     });
   }
 
-  _collectTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
+  _collectTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.ScalarTypeDefinitionNode |
+  types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode {
     // TODO : Deal with JSDoc
     return this._addTypeDefinition(node, () => ({
       type: types.GQLNodeKind.ALIAS,
@@ -487,7 +488,6 @@ export default class Collector {
     return symbol;
   }
 
-
   _concrete(node:types.InterfaceTypeDefinitionNode):types.ObjectTypeDefinitionNode {
     return {
       documentation: node.documentation,
@@ -500,10 +500,7 @@ export default class Collector {
   }
 
   _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveDefinitionNode {
-    let directiveParams = {
-      kind: types.GQLNodeKind.ARGUMENTS_DEFINITION,
-      args: {},
-    } as types.DirectiveArguments;
+    let directiveParams = [] as types.DirectiveInputValueNode[];
     if (jsDocTag.description) {
       const parser = new MethodParamsParser();
       try {
@@ -516,7 +513,7 @@ export default class Collector {
     return {
       kind: types.GQLNodeKind.DIRECTIVE,
       name: jsDocTag.title,
-      arguments?: directiveParams,
+      args: directiveParams,
     };
   }
 }

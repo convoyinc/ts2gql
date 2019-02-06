@@ -142,7 +142,7 @@ export interface InputValueDefinitionNode extends NamedNode {
 
 export interface DirectiveDefinitionNode extends NamedNode {
   kind:GQLNodeKind.DIRECTIVE;
-  arguments:DirectiveInputValueNode[];
+  args:DirectiveInputValueNode[];
 }
 
 export interface DirectiveInputValueNode extends NamedNode {
@@ -251,17 +251,9 @@ export interface IDTypeNode extends NullableNode {
 export type BuiltInScalarTypeNode = StringTypeNode | NumberTypeNode | BooleanTypeNode | IDTypeNode;
 export type ScalarTypeNode = CustomScalarTypeNode | BuiltInScalarTypeNode;
 
-//
-// Misc
-//
-export interface StringLiteralNode {
-  type:GQLNodeKind.STRING_LITERAL;
-  value:string;
-}
-
 // Currently we have no distinction between values: they're string-represented
-export interface ValueNode {
-  type:GQLNodeKind.VALUE;
+export interface ValueNode extends GraphQLNode {
+  kind:GQLNodeKind.VALUE;
   value:string;
 }
 
