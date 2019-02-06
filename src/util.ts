@@ -15,44 +15,49 @@ export function documentationForNode(node:typescript.Node, source?:string):doctr
   return doctrine.parse(comment, {unwrap: true});
 }
 
-export function hasDocTag(node:types.TranspiledNode, prefix:string):boolean {
-  return !!getDocTag(node, prefix);
+export function hasDocTag(node:types.TranspiledNode, regex:RegExp):boolean {
+  return !!extractTagDescription(node.documentation, regex);
 }
 
-export function getDocTag(node:types.TranspiledNode, prefix:string):string|null {
-  if (!node.documentation) return null;
-  for (const tag of node.documentation.tags) {
-    if (tag.title !== 'graphql') continue;
-    if (tag.description.startsWith(prefix)) return tag.description;
-  }
-  return null;
+export function extractTagDescription(doc:doctrine.ParseResult|undefined, regex:RegExp):string|null {
+  if (!doc) return null;
+  const found = doc.tags.find((tag) => {
+    return tag.title === 'graphql' && regex.test(tag.description);
+  });
+  return found ? found.description : null;
+}
+
+export function isReferenceType(node:types.TypeNode):node is types.ReferenceTypeNode {
+  return node.kind === types.GQLTypeKind.OBJECT_TYPE || node.kind === types.GQLTypeKind.INTERFACE_TYPE ||
+  node.kind === types.GQLTypeKind.ENUM_TYPE || node.kind === types.GQLTypeKind.INPUT_OBJECT_TYPE ||
+  node.kind === types.GQLTypeKind.UNION_TYPE || node.kind === types.GQLTypeKind.CUSTOM_SCALAR_TYPE;
 }
 
 export function isOutputType(node:types.TypeNode):node is types.OutputTypeNode {
   if (isWrappingType(node)) {
     return isOutputType(node.wrapped);
   }
-  return node.kind === types.GQLNodeKind.ENUM_TYPE || node.kind === types.GQLNodeKind.UNION_TYPE ||
-  node.kind === types.GQLNodeKind.INTERFACE_TYPE || node.kind === types.GQLNodeKind.OBJECT_TYPE || isScalar(node);
+  return node.kind === types.GQLTypeKind.ENUM_TYPE || node.kind === types.GQLTypeKind.UNION_TYPE ||
+  node.kind === types.GQLTypeKind.INTERFACE_TYPE || node.kind === types.GQLTypeKind.OBJECT_TYPE || isScalar(node);
 }
 
 export function isInputType(node:types.TypeNode):node is types.InputTypeNode {
   if (isWrappingType(node)) {
     return isInputType(node.wrapped);
   }
-  return node.kind === types.GQLNodeKind.ENUM_TYPE || node.kind === types.GQLNodeKind.INPUT_OBJECT_TYPE
+  return node.kind === types.GQLTypeKind.ENUM_TYPE || node.kind === types.GQLTypeKind.INPUT_OBJECT_TYPE
    || isScalar(node);
 }
 
 export function isScalar(node:types.TypeNode):node is types.ScalarTypeNode {
-  return node.kind === types.GQLNodeKind.CUSTOM_SCALAR_TYPE || isBuiltInScalar(node);
+  return node.kind === types.GQLTypeKind.CUSTOM_SCALAR_TYPE || isBuiltInScalar(node);
 }
 
 export function isBuiltInScalar(node:types.TypeNode):node is types.BuiltInScalarTypeNode {
-  return node.kind === types.GQLNodeKind.STRING_TYPE || node.kind === types.GQLNodeKind.INT_TYPE
-  || node.kind === types.GQLNodeKind.FLOAT_TYPE || node.kind === types.GQLNodeKind.BOOLEAN_TYPE;
+  return node.kind === types.GQLTypeKind.STRING_TYPE || node.kind === types.GQLTypeKind.INT_TYPE
+  || node.kind === types.GQLTypeKind.FLOAT_TYPE || node.kind === types.GQLTypeKind.BOOLEAN_TYPE;
 }
 
 export function isWrappingType(node:types.TypeNode):node is types.WrappingTypeNode {
-  return node.kind === types.GQLNodeKind.LIST_TYPE;
+  return node.kind === types.GQLTypeKind.LIST_TYPE;
 }

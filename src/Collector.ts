@@ -24,9 +24,9 @@ export default class Collector {
 
   addRootNode(node:typescript.InterfaceDeclaration):void {
     const collectedRoot = this._walkDeclaration(node);
-    if (collectedRoot.kind === types.GQLNodeKind.INTERFACE_DEFINITION) {
+    if (collectedRoot.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
       this.types[this._nameForSymbol(this._symbolForNode(node))] = this._concrete(collectedRoot);
-    } else if (collectedRoot.kind !== types.GQLNodeKind.OBJECT_DEFINITION) {
+    } else if (collectedRoot.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION) {
       throw new Error(`Expected root definition ${node.name.getText()} as GraphQL Object definition.`
       + `Got ${collectedRoot.kind}. `);
     }
@@ -36,8 +36,8 @@ export default class Collector {
     const existing = this.types[name];
     if (!existing) {
       throw new Error(`Cannot override '${name}' - it was never included`);
-    } else if (existing.kind !== types.GQLNodeKind.OBJECT_DEFINITION
-      && existing.kind !== types.GQLNodeKind.INTERFACE_DEFINITION) {
+    } else if (existing.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION
+      && existing.kind !== types.GQLDefinitionKind.INTERFACE_DEFINITION) {
         throw new Error(`Cannot override '${name}' - it is not a GraphQL Type or Interface`);
     }
     const overrides = node.members.map(member => this._collectFieldDefinition(member, types.GQLTypeCategory.OUTPUT));
@@ -124,12 +124,10 @@ export default class Collector {
         result = this._collectList(node as typescript.ArrayTypeNode);
         break;
       case SyntaxKind.TypeReference:
-        // TODO
         result = this._walkTypeReferenceNode(node as typescript.TypeReferenceNode);
         break;
       case SyntaxKind.UnionType:
-        // TODO
-        result = this._walkUnionTypeNode(node as typescript.UnionTypeNode);
+        result = this._collectUnion(node as typescript.UnionTypeNode);
         break;
       case SyntaxKind.StringKeyword:
       case SyntaxKind.NumberKeyword:
@@ -162,12 +160,12 @@ export default class Collector {
 
     const inheritedDefinitionChecker = isInput ?
     (definition:types.TypeDefinitionNode):definition is types.InputObjectTypeDefinition => {
-      return definition.kind === types.GQLNodeKind.INPUT_OBJECT_DEFINITION;
+      return definition.kind === types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION;
     }
     : (definition:types.TypeDefinitionNode):definition is types.ObjectTypeDefinitionNode |
     types.InterfaceTypeDefinitionNode => {
-      return definition.kind === types.GQLNodeKind.OBJECT_DEFINITION
-      || definition.kind === types.GQLNodeKind.INTERFACE_DEFINITION;
+      return definition.kind === types.GQLDefinitionKind.OBJECT_DEFINITION
+      || definition.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION;
     };
 
     const ownFields = node.members.map(member => {
@@ -180,8 +178,8 @@ export default class Collector {
     const inheritedFields = _.flatten(inherits.map((inheritedName:string) => {
       const inheritedDefinition = this.types[inheritedName];
       if (!inheritedDefinitionChecker(inheritedDefinition)) {
-          const expectedType = isInput ? types.GQLNodeKind.INPUT_OBJECT_DEFINITION
-          : `${types.GQLNodeKind.OBJECT_DEFINITION} or ${types.GQLNodeKind.INTERFACE_DEFINITION}`;
+          const expectedType = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
+          : `${types.GQLDefinitionKind.OBJECT_DEFINITION} or ${types.GQLDefinitionKind.INTERFACE_DEFINITION}`;
           const msg = `Incompatible inheritance of '${inheritedDefinition.name}'.`
           + ` Expected type '${expectedType}', got '${inheritedDefinition.kind}'.`;
           throw new Error(`At interface '${name}'\n${msg}`);
@@ -205,7 +203,8 @@ export default class Collector {
       name,
       fields: mergedFields,
     } as types.InterfaceTypeDefinitionNode | types.InputObjectTypeDefinition;
-    collected.kind = isInput ? types.GQLNodeKind.INPUT_OBJECT_DEFINITION : types.GQLNodeKind.INTERFACE_DEFINITION;
+    collected.kind = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
+    : types.GQLDefinitionKind.INTERFACE_DEFINITION;
     return this._addTypeDefinition(collected);
   }
 
@@ -256,7 +255,7 @@ export default class Collector {
     return {
       documentation,
       name,
-      kind: types.GQLNodeKind.FIELD_DEFINITION,
+      kind: types.GQLDefinitionKind.FIELD_DEFINITION,
       category,
       type,
       arguments: args,
@@ -265,11 +264,8 @@ export default class Collector {
   }
 
   _collectArgumentsDefinition(params:typescript.NodeArray<typescript.ParameterDeclaration>)
-  :types.ArgumentsDefinitionNode {
-    return {
-      kind: types.GQLNodeKind.ARGUMENTS_DEFINITION,
-      args: params.map(this._collectInputValueDefinition),
-    };
+  :types.InputValueDefinitionNode[] {
+    return params.map(this._collectInputValueDefinition);
   }
 
   _collectInputValueDefinition(param:typescript.ParameterDeclaration):types.InputValueDefinitionNode {
@@ -285,7 +281,7 @@ export default class Collector {
   }
     return {
       name,
-      kind: types.GQLNodeKind.INPUT_VALUE_DEFINITION,
+      kind: types.GQLDefinitionKind.INPUT_VALUE_DEFINITION,
       value: collected,
     };
   }
@@ -293,23 +289,36 @@ export default class Collector {
   _collectReferenceForSymbol(symbol:typescript.Symbol):types.ReferenceTypeNode {
     this._walkSymbolDeclaration(symbol);
     const name = this._nameForSymbol(symbol);
-    const reference = this.types[name];
-    if (!reference) {
+    const referenced = this.types[name];
+    if (!referenced) {
       throw new Error(`Symbol '${name}' was not declared.`);
-    } else if (reference.kind === types.GQLNodeKind.INTERFACE_DEFINITION) {
-      this.types[name] = this._concrete(reference);
+    } else if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
+      this.types[name] = this._concrete(referenced);
+    }
+
+    let nullable = false;
+    // Inherit nullable property from definition if available
+    if (referenced.kind === types.GQLDefinitionKind.UNION_DEFINITION
+    || referenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
+      nullable = referenced.nullable;
+    }
+
+    let kind = types.DefinitionFromType[referenced.kind];
+    // Scalar definitions may mean Int or ID TypeScript definition
+    if (referenced.kind === types.GQLDefinitionKind.SCALAR_DEFINITION && referenced.builtIn) {
+      kind = referenced.builtIn;
     }
 
     return {
-      definitionTarget: name,
-      nullable: reference.kind === types.GQLNodeKind.UNION_DEFINITION ? reference.nullable : false,
-      kind: types.DefinitionFromType[reference.kind],
+      target: name,
+      nullable,
+      kind,
     };
   }
 
   _collectList(node:typescript.ArrayTypeNode):types.ListTypeNode {
     return {
-      kind: types.GQLNodeKind.LIST_TYPE,
+      kind: types.GQLTypeKind.LIST_TYPE,
       nullable: false,
       wrapped: this._walkType(node.elementType),
     };
@@ -320,17 +329,17 @@ export default class Collector {
       case SyntaxKind.StringKeyword:
         return {
           nullable: false,
-          kind: types.GQLNodeKind.STRING_TYPE,
+          kind: types.GQLTypeKind.STRING_TYPE,
         };
       case SyntaxKind.BooleanKeyword:
         return {
           nullable: false,
-          kind: types.GQLNodeKind.BOOLEAN_TYPE,
+          kind: types.GQLTypeKind.BOOLEAN_TYPE,
         };
       case SyntaxKind.NumberKeyword:
         return {
           nullable: false,
-          kind: types.GQLNodeKind.FLOAT_TYPE,
+          kind: types.GQLTypeKind.FLOAT_TYPE,
         };
       default:
         throw new Error(`TypeScript '${kind}' is not a GraphQL BuiltIn Scalar`);
@@ -355,64 +364,103 @@ export default class Collector {
   }
 
   _collectTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.ScalarTypeDefinitionNode |
-  types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode {
-    // TODO : Deal with JSDoc
-    return this._addTypeDefinition(node, () => ({
-      type: types.GQLNodeKind.ALIAS,
-      target: this._walkDeclaration(node.type),
-    }));
+  types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode | types.DefinitionAliasNode {
+    const aliasType = this._walkType(node.type);
+    const doc = util.documentationForNode(node.type);
+    const name = node.name.getText();
+
+    let definition:types.ScalarTypeDefinitionNode | types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode
+    | types.DefinitionAliasNode;
+    if (util.isBuiltInScalar(aliasType)) {
+      definition = {
+        name,
+        kind: types.GQLDefinitionKind.SCALAR_DEFINITION,
+      };
+      if (util.extractTagDescription(doc, /^[Ii]nt$/)) {
+        if (aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
+          const msg = `GraphQL Int is incompatible with type ${aliasType.kind}`;
+          throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+        }
+        definition.builtIn = types.GQLTypeKind.INT_TYPE;
+      } else if (util.extractTagDescription(doc, /^(ID)|(Id)|(id)$/)) {
+        if (aliasType.kind !== types.GQLTypeKind.STRING_TYPE && aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
+          const msg = `GraphQL ID is incompatible with type ${aliasType.kind}`;
+          throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+        }
+        definition.builtIn = types.GQLTypeKind.ID_TYPE;
+      }
+    } else if (util.isReferenceType(aliasType) && aliasType.kind !== types.GQLTypeKind.UNION_TYPE) {
+      definition = {
+        name,
+        kind: types.GQLDefinitionKind.DEFINITION_ALIAS,
+        nullable: aliasType.nullable,
+        target: aliasType.target,
+      };
+    } else if (aliasType.kind === types.GQLTypeKind.UNION_TYPE) {
+      definition = this._collectUnionDefinition(node.type! as typescript.UnionTypeNode);
+    } else {
+      console.error(node);
+      console.error(`On file ${node.getSourceFile().fileName}`);
+      console.error(`Line ${node.getSourceFile().getStart()}`);
+      const msg = `Unsupported alias for GraphQL type ${aliasType.kind}`;
+      throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+    }
+    return this._addTypeDefinition(definition);
   }
 
-  _collectEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
-    // TODO : Deal with JSDoc
-    return this._addTypeDefinition(node, () => {
-      const values = node.members.map(m => {
-        // If the user provides an initializer, use the value of the initializer
-        // as the GQL enum value _unless_ the initializer is a numeric literal.
-        if (m.initializer && m.initializer.kind !== SyntaxKind.NumericLiteral) {
-          /**
-           *  Enums with initializers can look like:
-           *
-           *    export enum Type {
-           *      CREATED  = <any>'CREATED',
-           *      ACCEPTED = <any>'ACCEPTED',
-           *    }
-           *
-           *    export enum Type {
-           *      CREATED  = 'CREATED',
-           *      ACCEPTED = 'ACCEPTED',
-           *    }
-           *
-           *    export enum Type {
-           *      CREATED  = "CREATED",
-           *      ACCEPTED = "ACCEPTED",
-           *    }
-           */
-          const target = _.last(m.initializer.getChildren()) || m.initializer;
-          return _.trim(target.getText(), "'\"");
-        } else {
-          /**
-           *  For Enums without initializers (or with numeric literal initializers), emit the
-           *  EnumMember name as the value. Example:
-           *    export enum Type {
-           *      CREATED,
-           *      ACCEPTED,
-           *    }
-           */
-          return _.trim(m.name.getText(), "'\"");
-        }
-      });
-      return {
-        type: types.GQLNodeKind.ENUM_DEFINITION,
-        values,
-      };
+  _collectUnionDefinition(node:typescript.UnionTypeNode):types.EnumTypeDefinitionNode | types.UnionTypeDefinitionNode {
+
+  }
+
+  _collectEnumDeclaration(node:typescript.EnumDeclaration):types.EnumTypeDefinitionNode {
+    const values = node.members.map(m => {
+      // If the user provides an initializer, use the value of the initializer
+      // as the GQL enum value _unless_ the initializer is a numeric literal.
+      if (m.initializer && m.initializer.kind !== SyntaxKind.NumericLiteral) {
+        /**
+         *  Enums with initializers can look like:
+         *
+         *    export enum Type {
+         *      CREATED  = <any>'CREATED',
+         *      ACCEPTED = <any>'ACCEPTED',
+         *    }
+         *
+         *    export enum Type {
+         *      CREATED  = 'CREATED',
+         *      ACCEPTED = 'ACCEPTED',
+         *    }
+         *
+         *    export enum Type {
+         *      CREATED  = "CREATED",
+         *      ACCEPTED = "ACCEPTED",
+         *    }
+         */
+        const target = _.last(m.initializer.getChildren()) || m.initializer;
+        return _.trim(target.getText(), "'\"");
+      } else {
+        /**
+         *  For Enums without initializers (or with numeric literal initializers), emit the
+         *  EnumMember name as the value. Example:
+         *    export enum Type {
+         *      CREATED,
+         *      ACCEPTED,
+         *    }
+         */
+        return _.trim(m.name.getText(), "'\"");
+      }
+    });
+    return this._addTypeDefinition({
+      name: node.name.getText(),
+      kind: types.GQLDefinitionKind.ENUM_DEFINITION,
+      values,
     });
   }
 
-  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
+  _collectUnion(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
     const unionMembers = node.types.map(this._walkDeclaration);
     const withoutNull = unionMembers.filter((member:types.Node):boolean => {
-      return member.type !== types.GQLNodeKind.NULL && member.type !== types.GQLNodeKind.UNDEFINED;
+      return member.type !== types.
+      .NULL && member.type !== types.GQLDefinitionKind.UNDEFINED;
     });
     const nullable = withoutNull.length !== unionMembers.length;
 
@@ -420,15 +468,15 @@ export default class Collector {
     // Interpret TypeScript Union of one only primitive as a scalar
     withoutNull.map((member:types.Node) => {
       const memberNode = util.unwrapNotNull(member);
-      if (memberNode.type === types.GQLNodeKind.REFERENCE) {
+      if (memberNode.type === types.GQLDefinitionKind.REFERENCE) {
         const referenced = this.types[memberNode.target];
-        if (referenced.kind === types.GQLNodeKind.ALIAS && util.isBuiltInScalar(referenced.target) && withoutNull.length > 1) {
+        if (referenced.kind === types.GQLDefinitionKind.ALIAS && util.isBuiltInScalar(referenced.target) && withoutNull.length > 1) {
           throw new Error(`GraphQL does not support Scalar as an union member.`);
         }
-        if (referenced.kind === types.GQLNodeKind.UNION_DEFINITION) {
+        if (referenced.kind === types.GQLDefinitionKind.UNION_DEFINITION) {
           throw new Error(`GraphQL does not support UnionType as an union member.`);
         }
-        if (referenced.kind === types.GQLNodeKind.INTERFACE_DEFINITION && !referenced.concrete) {
+        if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION && !referenced.concrete) {
           throw new Error(`GraphQL does not support InterfaceType as an union member.`);
         }
       } else if (util.isBuiltInScalar(member) && withoutNull.length > 1) {
@@ -437,7 +485,7 @@ export default class Collector {
     });
 
     const collectedUnion = {
-      type: types.GQLNodeKind.UNION_DEFINITION,
+      type: types.GQLDefinitionKind.UNION_DEFINITION,
       types: withoutNull,
     } as types.UnionNode;
 
@@ -447,7 +495,7 @@ export default class Collector {
       return collectedUnion;
     }
     return {
-      type: types.GQLNodeKind.NON_NULL_TYPE,
+      type: types.GQLDefinitionKind.NON_NULL_TYPE,
       node: collectedUnion,
     };
   }
@@ -493,7 +541,7 @@ export default class Collector {
       documentation: node.documentation,
       originalLine: node.originalLine,
       originalColumn: node.originalColumn,
-      kind: types.GQLNodeKind.OBJECT_DEFINITION,
+      kind: types.GQLDefinitionKind.OBJECT_DEFINITION,
       name: node.name,
       fields: node.fields,
     };
@@ -511,7 +559,7 @@ export default class Collector {
       }
     }
     return {
-      kind: types.GQLNodeKind.DIRECTIVE,
+      kind: types.GQLDefinitionKind.DIRECTIVE,
       name: jsDocTag.title,
       args: directiveParams,
     };

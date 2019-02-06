@@ -55,9 +55,9 @@ export class MethodParamsParser  {
         }
         this.args[nameToken.value] = {
             name: nameToken.value,
-            kind: types.GQLNodeKind.DIRECTIVE_INPUT_VALUE_DEFINITION,
+            kind: types.GQLDefinitionKind.DIRECTIVE_INPUT_VALUE_DEFINITION,
             value: {
-                kind: types.GQLNodeKind.VALUE,
+                kind: types.GQLTypeKind.VALUE,
                 value: valueToken.value,
             },
         };
