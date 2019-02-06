@@ -3,12 +3,11 @@ import * as _ from 'lodash';
 import * as typescript from 'typescript';
 import * as path from 'path';
 
-import * as types from './types';
 import * as util from './util';
-import Collector from './Collector';
+import { Collector, CollectorType } from './Collector';
 import Emitter from './Emitter';
 
-export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeDefinitionMap {
+export function load(schemaRootPath:string, rootNodeNames:string[]):CollectorType {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
@@ -52,7 +51,7 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeDe
     collector.mergeOverrides(node, overrideName);
   });
 
-  return collector.types;
+  return collector;
 }
 
 export function emit(

@@ -9,12 +9,18 @@ import { MethodParamsParser } from './Parser';
 const SyntaxKind = typescript.SyntaxKind;
 const TypeFlags = typescript.TypeFlags;
 
+export interface CollectorType {
+  types:types.TypeDefinitionMap;
+  root?:types.SchemaDefinitionNode;
+}
+
 /**
  * Walks declarations from a TypeScript programs, and builds up a map of
  * referenced types.
  */
-export default class Collector {
-  types:types.TypeDefinitionMap = {};
+export class Collector implements CollectorType {
+  types:types.TypeDefinitionMap = new Map();
+  root?:types.SchemaDefinitionNode;
   private checker:typescript.TypeChecker;
   private nodeMap:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
 
@@ -28,8 +34,36 @@ export default class Collector {
       this.types[this._nameForSymbol(this._symbolForNode(node))] = this._concrete(collectedRoot);
     } else if (collectedRoot.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION) {
       throw new Error(`Expected root definition ${node.name.getText()} as GraphQL Object definition.`
-      + `Got ${collectedRoot.kind}. `);
+      + `Got ${collectedRoot.kind}.`);
     }
+
+    // Update root node
+    const queryField = collectedRoot.fields.find(field => field.name === 'query');
+    if (!queryField) {
+      console.error(node);
+      console.error(`On file ${node.getSourceFile().fileName}`);
+      throw new Error(`Schema definition without query field.`);
+    } else if (queryField.type.kind !== types.GQLTypeKind.OBJECT_TYPE) {
+      throw new Error(`Query root definition must be a GraphQL Object.`);
+    }
+
+    this.root = {
+      query: queryField.type.target,
+    };
+
+    const mutationField = collectedRoot.fields.find(field => field.name === 'mutation');
+    if (mutationField) {
+      if (mutationField.type.kind !== types.GQLTypeKind.OBJECT_TYPE) {
+        throw new Error(`Mutation root definition must be a GraphQL Object.`);
+      }
+      this.root = {
+        ...this.root,
+        mutation: mutationField.type.target,
+      };
+    }
+
+    // Remove Root Object from type list
+    this.types.delete(collectedRoot.name);
   }
 
   mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {

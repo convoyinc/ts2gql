@@ -68,8 +68,8 @@ interface ReferenceNode extends NullableNode {
 // Root node
 //
 export interface SchemaDefinitionNode extends TranspiledNode {
-  query:ObjectTypeDefinitionNode;
-  mutation?:ObjectTypeDefinitionNode;
+  query:SymbolName;
+  mutation?:SymbolName;
 }
 
 //
@@ -116,7 +116,7 @@ export interface DefinitionAliasNode extends GraphQLDefinitionNode, NullableNode
 export type TypeDefinitionNode = ObjectTypeDefinitionNode | InterfaceTypeDefinitionNode | EnumTypeDefinitionNode |
 InputObjectTypeDefinition | UnionTypeDefinitionNode | ScalarTypeDefinitionNode | DefinitionAliasNode;
 
-export type TypeDefinitionMap = {[key:string]:TypeDefinitionNode};
+export type TypeDefinitionMap = Map<string, TypeDefinitionNode>;
 
 //
 // Other Definitions
@@ -262,12 +262,4 @@ export type ScalarTypeNode = CustomScalarTypeNode | BuiltInScalarTypeNode;
 export interface ValueNode extends GraphQLTypeNode {
   kind:GQLTypeKind.VALUE;
   value:string;
-}
-
-export interface Parser<T> {
-  result:T;
-}
-
-export interface MethodParamsParser extends Parser<ArgumentsDefinitionNode> {
-
 }
