@@ -127,7 +127,7 @@ export default class Collector {
         result = this._walkTypeReferenceNode(node as typescript.TypeReferenceNode);
         break;
       case SyntaxKind.UnionType:
-        result = this._collectUnion(node as typescript.UnionTypeNode);
+        result = this._walkUnion(node as typescript.UnionTypeNode);
         break;
       case SyntaxKind.StringKeyword:
       case SyntaxKind.NumberKeyword:
@@ -142,6 +142,14 @@ export default class Collector {
     }
 
     return result;
+  }
+
+  _walkUnion(node:typescript.UnionTypeNode):types.TypeNode;
+  _walkUnion(node:typescript.UnionTypeNode, name:types.SymbolName):types.UnionTypeDefinitionNode |
+  types.DefinitionAliasNode;
+  _walkUnion(node:typescript.UnionTypeNode, name?:types.SymbolName):types.UnionTypeDefinitionNode |
+  types.DefinitionAliasNode | types.TypeNode {
+    return name ? this._collectUnionDefinition(node, name) : this._collectUnionExpression(node);
   }
 
   //
@@ -238,7 +246,7 @@ export default class Collector {
       throw new Error(`At property ${name}\n${msg}`);
     }
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
-        type.nullable = false;
+        type.nullable = true;
     }
 
     const documentation = util.documentationForNode(field);
@@ -365,51 +373,97 @@ export default class Collector {
 
   _collectTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.ScalarTypeDefinitionNode |
   types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode | types.DefinitionAliasNode {
-    const aliasType = this._walkType(node.type);
-    const doc = util.documentationForNode(node.type);
     const name = node.name.getText();
-
-    let definition:types.ScalarTypeDefinitionNode | types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode
-    | types.DefinitionAliasNode;
-    if (util.isBuiltInScalar(aliasType)) {
-      definition = {
-        name,
-        kind: types.GQLDefinitionKind.SCALAR_DEFINITION,
-      };
-      if (util.extractTagDescription(doc, /^[Ii]nt$/)) {
-        if (aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
-          const msg = `GraphQL Int is incompatible with type ${aliasType.kind}`;
-          throw new Error(`At TypeScript Alias ${name}\n${msg}`);
-        }
-        definition.builtIn = types.GQLTypeKind.INT_TYPE;
-      } else if (util.extractTagDescription(doc, /^(ID)|(Id)|(id)$/)) {
-        if (aliasType.kind !== types.GQLTypeKind.STRING_TYPE && aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
-          const msg = `GraphQL ID is incompatible with type ${aliasType.kind}`;
-          throw new Error(`At TypeScript Alias ${name}\n${msg}`);
-        }
-        definition.builtIn = types.GQLTypeKind.ID_TYPE;
-      }
-    } else if (util.isReferenceType(aliasType) && aliasType.kind !== types.GQLTypeKind.UNION_TYPE) {
-      definition = {
-        name,
-        kind: types.GQLDefinitionKind.DEFINITION_ALIAS,
-        nullable: aliasType.nullable,
-        target: aliasType.target,
-      };
-    } else if (aliasType.kind === types.GQLTypeKind.UNION_TYPE) {
-      definition = this._collectUnionDefinition(node.type! as typescript.UnionTypeNode);
+    let definition:types.ScalarTypeDefinitionNode | types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode |
+    types.DefinitionAliasNode;
+    if (node.type!.kind === SyntaxKind.UnionType) {
+      return this._walkUnion(node.type! as typescript.UnionTypeNode, name);
     } else {
-      console.error(node);
-      console.error(`On file ${node.getSourceFile().fileName}`);
-      console.error(`Line ${node.getSourceFile().getStart()}`);
-      const msg = `Unsupported alias for GraphQL type ${aliasType.kind}`;
-      throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+      const aliasType = this._walkType(node.type);
+      const doc = util.documentationForNode(node.type);
+
+      if (util.isBuiltInScalar(aliasType)) {
+        definition = {
+          name,
+          kind: types.GQLDefinitionKind.SCALAR_DEFINITION,
+        };
+        if (util.extractTagDescription(doc, /^[Ii]nt$/)) {
+          if (aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
+            const msg = `GraphQL Int is incompatible with type ${aliasType.kind}`;
+            throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+          }
+          definition.builtIn = types.GQLTypeKind.INT_TYPE;
+        } else if (util.extractTagDescription(doc, /^(ID)|(Id)|(id)$/)) {
+          if (aliasType.kind !== types.GQLTypeKind.STRING_TYPE && aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
+            const msg = `GraphQL ID is incompatible with type ${aliasType.kind}`;
+            throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+          }
+          definition.builtIn = types.GQLTypeKind.ID_TYPE;
+        }
+      } else if (util.isReferenceType(aliasType)) {
+        definition = {
+          name,
+          kind: types.GQLDefinitionKind.DEFINITION_ALIAS,
+          nullable: aliasType.nullable,
+          target: aliasType.target,
+        };
+      } else {
+        console.error(node);
+        console.error(`On file ${node.getSourceFile().fileName}`);
+        console.error(`Line ${node.getSourceFile().getStart()}`);
+        const msg = `Unsupported alias for GraphQL type ${aliasType.kind}`;
+        throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+      }
     }
     return this._addTypeDefinition(definition);
   }
 
-  _collectUnionDefinition(node:typescript.UnionTypeNode):types.EnumTypeDefinitionNode | types.UnionTypeDefinitionNode {
+  _collectUnionExpression(node:typescript.UnionTypeNode):types.TypeNode {
+    const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
+    if (unionMembers.length < 1) {
+      throw new Error(`Empty union expression.`);
+    } else if (unionMembers.length > 1) {
+      throw new Error(`Union expressions are only allowed to have a single type reference.`
+      + ` For multiple type references, please use create an appropriate GraphQL Union.`);
+    }
 
+    const member = unionMembers[0];
+    if (unionMembers.length !== node.types.length) {
+      member.nullable = true;
+    }
+
+    return member;
+  }
+
+  _collectUnionDefinition(node:typescript.UnionTypeNode, name:types.SymbolName):types.UnionTypeDefinitionNode |
+  types.DefinitionAliasNode {
+    const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
+    const nullable = unionMembers.length < node.types.length || unionMembers.some(member => !member.nullable);
+
+    // GraphQL only allow unions of GraphQL Objects
+    const collectedUnion = unionMembers.map((member) => {
+      if (member.kind !== types.GQLTypeKind.OBJECT_TYPE) {
+        throw new Error(`GraphQL does not support ${member.kind} as an union member.`);
+      }
+      return member;
+    });
+
+    // Only one member: create alias
+    if (collectedUnion.length === 1 ) {
+      return {
+        kind: types.GQLDefinitionKind.DEFINITION_ALIAS,
+        name,
+        nullable,
+        target: collectedUnion[0].target,
+      };
+    }
+
+    return {
+      kind: types.GQLDefinitionKind.UNION_DEFINITION,
+      name,
+      nullable,
+      members: collectedUnion,
+    };
   }
 
   _collectEnumDeclaration(node:typescript.EnumDeclaration):types.EnumTypeDefinitionNode {
@@ -454,50 +508,6 @@ export default class Collector {
       kind: types.GQLDefinitionKind.ENUM_DEFINITION,
       values,
     });
-  }
-
-  _collectUnion(node:typescript.UnionTypeNode):types.UnionNode | types.NotNullNode {
-    const unionMembers = node.types.map(this._walkDeclaration);
-    const withoutNull = unionMembers.filter((member:types.Node):boolean => {
-      return member.type !== types.
-      .NULL && member.type !== types.GQLDefinitionKind.UNDEFINED;
-    });
-    const nullable = withoutNull.length !== unionMembers.length;
-
-    // GraphQL does not allow unions with GraphQL Scalars, Unions or Scalars
-    // Interpret TypeScript Union of one only primitive as a scalar
-    withoutNull.map((member:types.Node) => {
-      const memberNode = util.unwrapNotNull(member);
-      if (memberNode.type === types.GQLDefinitionKind.REFERENCE) {
-        const referenced = this.types[memberNode.target];
-        if (referenced.kind === types.GQLDefinitionKind.ALIAS && util.isBuiltInScalar(referenced.target) && withoutNull.length > 1) {
-          throw new Error(`GraphQL does not support Scalar as an union member.`);
-        }
-        if (referenced.kind === types.GQLDefinitionKind.UNION_DEFINITION) {
-          throw new Error(`GraphQL does not support UnionType as an union member.`);
-        }
-        if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION && !referenced.concrete) {
-          throw new Error(`GraphQL does not support InterfaceType as an union member.`);
-        }
-      } else if (util.isBuiltInScalar(member) && withoutNull.length > 1) {
-        throw new Error(`GraphQL does not support Scalar as an union member.`);
-      }
-    });
-
-    const collectedUnion = {
-      type: types.GQLDefinitionKind.UNION_DEFINITION,
-      types: withoutNull,
-    } as types.UnionNode;
-
-    if (nullable) {
-      // If the union is nullable, remove the non-null property of all members
-      collectedUnion.types = collectedUnion.types.map(util.unwrapNotNull);
-      return collectedUnion;
-    }
-    return {
-      type: types.GQLDefinitionKind.NON_NULL_TYPE,
-      node: collectedUnion,
-    };
   }
 
   // Utility
@@ -563,5 +573,11 @@ export default class Collector {
       name: jsDocTag.title,
       args: directiveParams,
     };
+  }
+
+  _filterNullUndefined(nodes:typescript.NodeArray<typescript.Node>):typescript.Node[] {
+    return nodes.filter((node) => {
+      return node.kind !== SyntaxKind.NullKeyword && node.kind !== SyntaxKind.UndefinedKeyword;
+    });
   }
 }
