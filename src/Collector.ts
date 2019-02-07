@@ -240,6 +240,11 @@ export class Collector implements CollectorType {
       return !ownFieldNames.has(inheritedField.name);
     }));
 
+    if (mergedFields.length === 0) {
+      const msg = `GraphQL does not allow Objects and Interfaces without fields.`;
+      throw new Error(`At interface '${name}'\n${msg}`);
+    }
+
     const collected = {
       documentation,
       name,
@@ -316,7 +321,7 @@ export class Collector implements CollectorType {
     if (!util.isInputType(collected)) {
       const kind = util.isWrappingType(collected) ? collected.wrapped.kind : collected.kind;
       const msg = `Argument lists accept only GraphQL Scalars, Enums and Input Object types. Got ${kind}.`;
-      throw new Error(`At parameter ${name}\n${msg}`);
+      throw new Error(`At parameter '${name}'\n${msg}`);
     }
     if (param.questionToken) {
       collected.nullable = true;
@@ -430,7 +435,7 @@ export class Collector implements CollectorType {
         } else if (util.extractTagDescription(doc, /^(ID)|(Id)|(id)$/)) {
           if (aliasType.kind !== types.GQLTypeKind.STRING_TYPE && aliasType.kind !== types.GQLTypeKind.FLOAT_TYPE) {
             const msg = `GraphQL ID is incompatible with type ${aliasType.kind}`;
-            throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+            throw new Error(`At TypeScript Alias '${name}'\n${msg}`);
           }
           definition.builtIn = types.GQLTypeKind.ID_TYPE;
         }
@@ -446,7 +451,7 @@ export class Collector implements CollectorType {
         console.error(`On file ${node.getSourceFile().fileName}`);
         console.error(`Line ${node.getSourceFile().getStart()}`);
         const msg = `Unsupported alias for GraphQL type ${aliasType.kind}`;
-        throw new Error(`At TypeScript Alias ${name}\n${msg}`);
+        throw new Error(`At TypeScript Alias '${name}'\n${msg}`);
       }
     }
     return this._addTypeDefinition(definition);

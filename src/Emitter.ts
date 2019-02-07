@@ -32,8 +32,10 @@ export default class Emitter {
     let content;
     switch (node.kind) {
       case types.GQLDefinitionKind.OBJECT_DEFINITION:
+        content = this._emitObject(node, name);
         break;
       case types.GQLDefinitionKind.INTERFACE_DEFINITION:
+        content = this._emitInterface(node, name);
         break;
       case types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION:
         content = this._emitInputObject(node, name);
@@ -50,6 +52,9 @@ export default class Emitter {
       case types.GQLDefinitionKind.DEFINITION_ALIAS:
         const aliased = this.typeMap[node.target];
         content = this.emitTopLevelNode(aliased, name, stream);
+        break;
+      default:
+        throw new Error(`Unsupported top level node '${name}'.`);
     }
     return content;
   }
@@ -63,6 +68,14 @@ export default class Emitter {
   }
 
   // Specialized emitters
+
+  _emitObject(node:types.ObjectTypeDefinitionNode, name:string):string {
+    return `type ${this._name(name)} {\n${this._emitFields(node.fields)}\n}`;
+  }
+
+  _emitInterface(node:types.InterfaceTypeDefinitionNode, name:types.SymbolName):string {
+    return `interface ${this._name(name)} {\n${this._emitFields(node.fields)}\n}`;
+  }
 
   _emitFields(fields:types.FieldDefinitionNode[]) {
     const emitted = fields.map(field => this._emitField(field));
@@ -107,112 +120,34 @@ export default class Emitter {
     return node.builtIn ? '' : `scalar ${this._name(name)}`;
   }
 
-  _emitReference(node:types.ReferenceNode):string {
+  _emitReference(node:types.ReferenceTypeNode):string {
     return this._name(node.target);
   }
 
-  _emitInterface(node:types.InterfaceNode, name:types.SymbolName):string {
-    // GraphQL expects denormalized type interfaces
-    const members = <types.Node[]>_(this._transitiveInterfaces(node))
-      .map(i => i.members)
-      .flatten()
-      .uniqBy('name')
-      .sortBy('name')
-      .value();
-
-    // GraphQL can't handle empty types or interfaces, but we also don't want
-    // to remove all references (complicated).
-    if (!members.length) {
-      members.push({
-        type: types.GQLTypeKind.PROPERTY,
-        name: '__placeholder',
-        signature: {type: types.GQLTypeKind.BOOLEAN},
-      });
-    }
-
-    // Schema definition has special treatment on non nullable properties
-    if (this._hasDocTag(node, 'schema')) {
-      return this._emitSchemaDefinition(members);
-    }
-
-    if (node.concrete) {
-      return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
-    }
-
-    let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
-
-    return result;
-  }
-
-  _emitExpression = (node:types.Node):string => {
-    if (!node) {
-      return '';
-    } else if (node.kind === types.GQLTypeKind.VALUE) {
+  _emitExpression = (node:types.TypeNode|types.ValueNode):string => {
+    if (node.kind === types.GQLTypeKind.VALUE) {
       return `${node.value}`;
-    } else if (node.kind === types.GQLTypeKind.NOT_NULL) {
-      return `${this._emitExpression(node.node)}!`;
-    } else if (node.kind === types.GQLTypeKind.STRING) {
-      return 'String'; // TODO: ID annotation
-    } else if (node.kind === types.GQLTypeKind.NUMBER) {
-      return 'Float'; // TODO: Int/Float annotation
-    } else if (node.kind === types.GQLTypeKind.BOOLEAN) {
+    }
+    const required = node.nullable ? '' : '!';
+    if (util.isReferenceType(node)) {
+      return `${this._name(node.target)}${required}`;
+    }
+    if (node.kind === types.GQLTypeKind.LIST_TYPE) {
+      return `[${this._emitExpression(node.wrapped)}]${required}`;
+    }
+    if (node.kind === types.GQLTypeKind.STRING_TYPE) {
+      return 'String';
+    }
+    if (node.kind === types.GQLTypeKind.FLOAT_TYPE) {
+      return 'Float';
+    }
+    if (node.kind === types.GQLTypeKind.INT_TYPE) {
+      return 'Int';
+    }
+    if (node.kind === types.GQLTypeKind.BOOLEAN_TYPE) {
       return 'Boolean';
-    } else if (node.kind === types.GQLTypeKind.REFERENCE) {
-      return this._name(node.target);
-    } else if (node.kind === types.GQLTypeKind.ARRAY) {
-      return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
-    } else if (node.kind === types.GQLTypeKind.LITERAL_OBJECT || node.kind === types.GQLTypeKind.INTERFACE) {
-      return _(this._collectMembers(node))
-        .map((member:types.PropertyNode) => {
-          return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
-        })
-        .join(', ');
-    } else if (node.kind === types.GQLTypeKind.UNION) {
-      if (node.members.length !== 1) {
-        throw new Error(`There's no support for inline union with non-null and non-undefined types.`);
-      }
-      return this._emitExpression(node.members[0]);
-    } else {
-      throw new Error(`Can't serialize ${node.kind} as an expression`);
     }
-  }
-
-  _collectMembers = (node:types.InterfaceNode|types.LiteralObjectNode):types.PropertyNode[] => {
-    let members:types.Node[] = [];
-    if (node.kind === types.GQLTypeKind.LITERAL_OBJECT) {
-      members = node.members;
-    } else {
-      const seenProps = new Set<types.SymbolName>();
-      let interfaceNode:types.InterfaceNode|null;
-      interfaceNode = node;
-
-      // loop through this interface and any super-interfaces
-      while (interfaceNode) {
-        for (const member of interfaceNode.members) {
-          if (seenProps.has(member.name)) continue;
-          seenProps.add(member.name);
-          members.push(member);
-        }
-        if (interfaceNode.inherits.length > 1) {
-          throw new Error(`No support for multiple inheritence: ${JSON.stringify(interfaceNode.inherits)}`);
-        } else if (interfaceNode.inherits.length === 1) {
-          const supertype:types.Node = this.typeMap[interfaceNode.inherits[0]];
-          if (supertype.kind !== types.GQLTypeKind.INTERFACE) {
-            throw new Error(`Expected supertype to be an interface node: ${supertype}`);
-          }
-          interfaceNode = supertype;
-        } else {
-          interfaceNode = null;
-        }
-      }
-    }
-
-    for (const member of members) {
-      if (member.kind !== types.GQLTypeKind.PROPERTY) {
-        throw new Error(`Expected members to be properties; got ${member.kind}`);
-      }
-    }
-    return members as types.PropertyNode[];
+    return 'ID';
   }
 
   // Utility
@@ -225,14 +160,4 @@ export default class Emitter {
     if (!_.isArray(content)) content = content.split('\n');
     return content.map(s => `  ${s}`).join('\n');
   }
-
-  _transitiveInterfaces(node:types.InterfaceNode):types.InterfaceNode[] {
-    let interfaces = [node];
-    for (const name of node.inherits) {
-      const inherited = <types.InterfaceNode>this.typeMap[name];
-      interfaces = interfaces.concat(this._transitiveInterfaces(inherited));
-    }
-    return _.uniq(interfaces);
-  }
-
 }
