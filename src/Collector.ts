@@ -7,7 +7,6 @@ import * as util from './util';
 import { MethodParamsParser } from './Parser';
 
 const SyntaxKind = typescript.SyntaxKind;
-const TypeFlags = typescript.TypeFlags;
 
 export interface CollectorType {
   types:types.TypeDefinitionMap;

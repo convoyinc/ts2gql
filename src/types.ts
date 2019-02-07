@@ -1,5 +1,4 @@
 import * as doctrine from 'doctrine';
-import { MethodParamsParser } from './Parser';
 
 export type SymbolName = string;
 
@@ -52,15 +51,15 @@ export enum GQLTypeKind {
 //
 // Abstractions
 //
-interface NamedNode {
+export interface NamedNode {
   name:SymbolName;
 }
 
-interface NullableNode {
+export interface NullableNode {
   nullable:boolean;
 }
 
-interface ReferenceNode extends NullableNode {
+export interface ReferenceNode extends NullableNode {
   target:SymbolName;
 }
 
@@ -75,7 +74,7 @@ export interface SchemaDefinitionNode extends TranspiledNode {
 //
 // Type Definitions
 //
-interface GraphQLDefinitionNode extends TranspiledNode, NamedNode {
+export interface GraphQLDefinitionNode extends TranspiledNode, NamedNode {
   kind:GQLDefinitionKind;
 }
 
@@ -159,7 +158,7 @@ export interface DirectiveInputValueNode extends GraphQLDefinitionNode {
 
 // General definitions
 
-interface GraphQLTypeNode extends TranspiledNode {
+export interface GraphQLTypeNode extends TranspiledNode {
   kind:GQLTypeKind;
 }
 
@@ -170,7 +169,7 @@ export enum GQLTypeCategory {
 
 export type NamedInputTypeNode = ScalarTypeNode | EnumTypeNode | InputObjectTypeNode;
 export type NamedOutputTypeNode = ScalarTypeNode | ObjectTypeNode | InterfaceTypeNode | UnionTypeNode | EnumTypeNode;
-type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode;
+export type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode;
 
 export type WrappingInputTypeNode = ListInputTypeNode;
 export type WrappingOutputTypeNode = ListOutputTypeNode;
@@ -182,7 +181,7 @@ export type TypeNode = NamedTypeNode | WrappingTypeNode;
 
 // Wrapping Types
 
-interface WrappingNode<T extends GraphQLTypeNode | ReferenceNode> extends GraphQLTypeNode, NullableNode {
+export interface WrappingNode<T extends GraphQLTypeNode | ReferenceNode> extends GraphQLTypeNode, NullableNode {
   wrapped:T;
 }
 
@@ -245,7 +244,7 @@ export interface FloatTypeNode extends GraphQLTypeNode, NullableNode {
   kind:GQLTypeKind.FLOAT_TYPE;
 }
 
-type NumberTypeNode = IntTypeNode | FloatTypeNode;
+export type NumberTypeNode = IntTypeNode | FloatTypeNode;
 
 export interface BooleanTypeNode extends GraphQLTypeNode, NullableNode {
   kind:GQLTypeKind.BOOLEAN_TYPE;
