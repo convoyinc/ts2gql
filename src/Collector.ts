@@ -37,6 +37,10 @@ export class Collector implements CollectorType {
       + `Got ${collectedRoot.kind}.`);
     }
 
+    if (collectedRoot.fields.some(field => field.name !== 'query' && field.name !== 'mutation')) {
+      throw new Error(`Schema definition may only have query or mutation fields.`);
+    }
+
     // Update root node
     const queryField = collectedRoot.fields.find(field => field.name === 'query');
     if (!queryField) {
@@ -92,7 +96,6 @@ export class Collector implements CollectorType {
     }
     const typeDefinition = {} as types.TypeDefinitionNode;
     this.ts2GqlMap.set(node, typeDefinition);
-    // console.log(`Cached ${node.getText()}`)
     let result = null as types.TypeDefinitionNode | null;
 
     switch (node.kind) {
@@ -145,6 +148,9 @@ export class Collector implements CollectorType {
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.ReferenceTypeNode {
+    if (!node.typeName.getText()) {
+      throw new Error(`Missing reference name`);
+    }
     return this._collectReferenceForSymbol(this._symbolForNode(node.typeName));
   }
 
@@ -295,7 +301,7 @@ export class Collector implements CollectorType {
     try {
       type = this._walkType(signature.type!);
     } catch (e) {
-      e.message = `At property ${name}\n${e.message}`;
+      e.message = `At property '${name}'\n${e.message}`;
       throw e;
     }
 
@@ -303,7 +309,7 @@ export class Collector implements CollectorType {
       const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
       const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
       const msg = `Argument lists accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
-      throw new Error(`At property ${name}\n${msg}`);
+      throw new Error(`At property '${name}'\n${msg}`);
     }
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
         type.nullable = true;
