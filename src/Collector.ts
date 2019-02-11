@@ -21,7 +21,8 @@ export class Collector implements CollectorType {
   types:types.TypeDefinitionMap = new Map();
   root?:types.SchemaDefinitionNode;
   private checker:typescript.TypeChecker;
-  private nodeMap:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
+  private ts2GqlMap:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
+  private gql2TsMap:Map<types.SymbolName, typescript.Node> = new Map();
 
   constructor(program:typescript.Program) {
     this.checker = program.getTypeChecker();
@@ -30,7 +31,7 @@ export class Collector implements CollectorType {
   addRootNode(node:typescript.InterfaceDeclaration):void {
     const collectedRoot = this._walkDeclaration(node);
     if (collectedRoot.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
-      this.types[this._nameForSymbol(this._symbolForNode(node))] = this._concrete(collectedRoot);
+      this.types.set(collectedRoot.name, this._concrete(collectedRoot));
     } else if (collectedRoot.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION) {
       throw new Error(`Expected root definition ${node.name.getText()} as GraphQL Object definition.`
       + `Got ${collectedRoot.kind}.`);
@@ -66,7 +67,7 @@ export class Collector implements CollectorType {
   }
 
   mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
-    const existing = this.types[name];
+    const existing = this.types.get(name);
     if (!existing) {
       throw new Error(`Cannot override '${name}' - it was never included`);
     } else if (existing.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION
@@ -86,11 +87,12 @@ export class Collector implements CollectorType {
   //
 
   _walkDeclaration(node:typescript.Node):types.TypeDefinitionNode {
-    if (this.nodeMap.has(node)) {
-      return this.nodeMap.get(node)!;
+    if (this.ts2GqlMap.has(node)) {
+      return this.ts2GqlMap.get(node)!;
     }
     const typeDefinition = {} as types.TypeDefinitionNode;
-    this.nodeMap.set(node, typeDefinition);
+    this.ts2GqlMap.set(node, typeDefinition);
+    // console.log(`Cached ${node.getText()}`)
     let result = null as types.TypeDefinitionNode | null;
 
     switch (node.kind) {
@@ -111,9 +113,7 @@ export class Collector implements CollectorType {
         throw new Error(`Don't know how to handle ${node.getText()} as ${SyntaxKind[node.kind]} node`);
     }
 
-    if (result) {
-      Object.assign(typeDefinition, result);
-    }
+    Object.assign(typeDefinition, result);
     return typeDefinition;
   }
 
@@ -145,9 +145,8 @@ export class Collector implements CollectorType {
     return this._collectReferenceForSymbol(this._symbolForNode(node.typeName));
   }
 
-  _walkType(node:typescript.Node):types.TypeNode {
+  _walkType = (node:typescript.Node):types.TypeNode => {
     let result:types.TypeNode;
-
     switch (node.kind) {
       case SyntaxKind.ParenthesizedType:
         const parenthesizedNode = node as typescript.ParenthesizedTypeNode;
@@ -173,7 +172,6 @@ export class Collector implements CollectorType {
         console.error(`Line ${node.getSourceFile().getStart()}`);
         throw new Error(`Unsupported TypeScript type ${SyntaxKind[node.kind]}.`);
     }
-
     return result;
   }
 
@@ -209,16 +207,24 @@ export class Collector implements CollectorType {
       || definition.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION;
     };
 
-    const ownFields = node.members.map(member => {
-      if (isInput) {
-        return this._collectFieldDefinition(member, types.GQLTypeCategory.INPUT);
-      }
-      return this._collectFieldDefinition(member, types.GQLTypeCategory.OUTPUT);
-    });
+    let ownFields;
+    try {
+      ownFields = node.members.map(member => {
+        if (isInput) {
+          return this._collectFieldDefinition(member, types.GQLTypeCategory.INPUT);
+        }
+        return this._collectFieldDefinition(member, types.GQLTypeCategory.OUTPUT);
+      });
+    } catch (e) {
+      e.message = `At interface '${name}'\n${e.message}`;
+      throw e;
+    }
 
     const inheritedFields = _.flatten(inherits.map((inheritedName:string) => {
-      const inheritedDefinition = this.types[inheritedName];
-      if (!inheritedDefinitionChecker(inheritedDefinition)) {
+      const inheritedDefinition = this.types.get(inheritedName);
+      if (!inheritedDefinition) {
+        throw new Error(`Could not find declaration for '${inheritedName}'.`);
+      } else if (!inheritedDefinitionChecker(inheritedDefinition)) {
           const expectedType = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
           : `${types.GQLDefinitionKind.OBJECT_DEFINITION} or ${types.GQLDefinitionKind.INTERFACE_DEFINITION}`;
           const msg = `Incompatible inheritance of '${inheritedDefinition.name}'.`
@@ -268,7 +274,11 @@ export class Collector implements CollectorType {
         const msg = `GraphQL Input Objects Fields must not have argument lists.`;
         throw new Error(`At property '${signature.name.getText()}'\n${msg}`);
       }
-      args = this._collectArgumentsDefinition(signature.parameters);
+      try {
+        args = this._collectArgumentsDefinition(signature.parameters);
+      } catch (e) {
+        e.message = `At function property ${signature.name.getText()}\n${e.message}`;
+      }
     } else if (field.kind === SyntaxKind.PropertySignature) {
       signature = field as typescript.PropertySignature;
     } else {
@@ -276,7 +286,14 @@ export class Collector implements CollectorType {
     }
     const name = signature.name.getText();
 
-    const type = this._walkType(signature.type!);
+    let type;
+    try {
+      type = this._walkType(signature.type!);
+    } catch (e) {
+      e.message = `At property ${name}\n${e.message}`;
+      throw e;
+    }
+
     if (!util.isOutputType(type)) {
       const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
       const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
@@ -314,7 +331,7 @@ export class Collector implements CollectorType {
     return params.map(this._collectInputValueDefinition);
   }
 
-  _collectInputValueDefinition(param:typescript.ParameterDeclaration):types.InputValueDefinitionNode {
+  _collectInputValueDefinition = (param:typescript.ParameterDeclaration):types.InputValueDefinitionNode => {
     const name = param.name.getText();
     const collected = this._walkType(param.type!);
     if (!util.isInputType(collected)) {
@@ -333,13 +350,16 @@ export class Collector implements CollectorType {
   }
 
   _collectReferenceForSymbol(symbol:typescript.Symbol):types.ReferenceTypeNode {
-    this._walkSymbolDeclaration(symbol);
+    let referenced = this._walkSymbolDeclaration(symbol);
     const name = this._nameForSymbol(symbol);
-    const referenced = this.types[name];
+
     if (!referenced) {
-      throw new Error(`Symbol '${name}' was not declared.`);
+      throw new Error(`Could not find declaration for symbol '${name}'.`);
     } else if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
-      this.types[name] = this._concrete(referenced);
+      const concreteReference = this._concrete(referenced);
+      this.ts2GqlMap.set(this.gql2TsMap.get(referenced.name)!, concreteReference);
+      this.types.set(name, concreteReference);
+      referenced = concreteReference;
     }
 
     let nullable = false;
@@ -456,7 +476,7 @@ export class Collector implements CollectorType {
     return this._addTypeDefinition(definition);
   }
 
-  _collectUnionExpression(node:typescript.UnionTypeNode):types.TypeNode {
+  _collectUnionExpression = (node:typescript.UnionTypeNode):types.TypeNode => {
     const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
     if (unionMembers.length < 1) {
       throw new Error(`Empty union expression.`);
@@ -496,12 +516,12 @@ export class Collector implements CollectorType {
       };
     }
 
-    return {
+    return this._addTypeDefinition({
       kind: types.GQLDefinitionKind.UNION_DEFINITION,
       name,
       nullable,
       members: collectedUnion,
-    };
+    });
   }
 
   _collectEnumDeclaration(node:typescript.EnumDeclaration):types.EnumTypeDefinitionNode {
@@ -552,16 +572,21 @@ export class Collector implements CollectorType {
 
   _addTypeDefinition<T extends types.TypeDefinitionNode>(typeDefinition:T):T {
     const name = typeDefinition.name;
-    const defined = this.types[name];
+    const defined = this.types.get(name);
     if (defined) {
       throw new Error(`Conflicting references for symbol ${name}.`
       + `Defined as ${defined.kind} and ${typeDefinition.kind}.`);
     }
-    return this.types[name] = typeDefinition;
+    this.types.set(name, typeDefinition);
+    return typeDefinition;
   }
 
   _symbolForNode(node:typescript.Node):typescript.Symbol {
-    return this._expandSymbol(this.checker.getSymbolAtLocation(node)!);
+    const symbol = this.checker.getSymbolAtLocation(node);
+    if (!symbol) {
+      throw new Error(`Could not find symbol for\n${node.getText()}`);
+    }
+    return this._expandSymbol(symbol);
   }
 
   _nameForSymbol(symbol:typescript.Symbol):types.SymbolName {

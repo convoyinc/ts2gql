@@ -10,6 +10,7 @@ export default class Emitter {
   private root:types.SchemaDefinitionNode;
   constructor(collector:CollectorType) {
     this.typeMap = collector.types;
+    console.log(JSON.stringify([...this.typeMap], undefined, 1));
     if (!collector.root) {
       throw new Error(`Empty schema definition.`);
     }
@@ -84,8 +85,11 @@ export default class Emitter {
 
   _emitField(field:types.FieldDefinitionNode) {
     const argumentList = this._emitArguments(field.arguments);
-    const directives = this._emitFieldDirectives(field.directives);
-    return `${this._name(field.name)}${argumentList}: ${this._emitExpression(field.type)} ${directives}`;
+    let directives = this._emitFieldDirectives(field.directives);
+    if (directives) {
+      directives = ' ' + directives;
+    }
+    return `${this._name(field.name)}${argumentList}: ${this._emitExpression(field.type)}${directives}`;
   }
 
   _emitArguments(args?:(types.InputValueDefinitionNode | types.DirectiveInputValueNode)[]):string {
@@ -129,25 +133,24 @@ export default class Emitter {
       return `${node.value}`;
     }
     const required = node.nullable ? '' : '!';
+    let emitted = '';
     if (util.isReferenceType(node)) {
-      return `${this._name(node.target)}${required}`;
+      emitted = `${this._name(node.target)}`;
+    } else if (node.kind === types.GQLTypeKind.LIST_TYPE) {
+      emitted = `[${this._emitExpression(node.wrapped)}]`;
+    } else if (node.kind === types.GQLTypeKind.STRING_TYPE) {
+      emitted = 'String';
+    } else if (node.kind === types.GQLTypeKind.FLOAT_TYPE) {
+      emitted = 'Float';
+    } else if (node.kind === types.GQLTypeKind.INT_TYPE) {
+      emitted = 'Int';
+    } else if (node.kind === types.GQLTypeKind.BOOLEAN_TYPE) {
+      emitted = 'Boolean';
+    } else if (node.kind === types.GQLTypeKind.ID_TYPE) {
+      emitted = 'ID';
     }
-    if (node.kind === types.GQLTypeKind.LIST_TYPE) {
-      return `[${this._emitExpression(node.wrapped)}]${required}`;
-    }
-    if (node.kind === types.GQLTypeKind.STRING_TYPE) {
-      return 'String';
-    }
-    if (node.kind === types.GQLTypeKind.FLOAT_TYPE) {
-      return 'Float';
-    }
-    if (node.kind === types.GQLTypeKind.INT_TYPE) {
-      return 'Int';
-    }
-    if (node.kind === types.GQLTypeKind.BOOLEAN_TYPE) {
-      return 'Boolean';
-    }
-    return 'ID';
+
+    return emitted + required;
   }
 
   // Utility

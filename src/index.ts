@@ -30,6 +30,9 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):CollectorTyp
   });
 
   rootNodeNames = _.uniq(rootNodeNames);
+  if (rootNodeNames.length === 0) {
+    throw new Error(`GraphQL Schema declaration not found`);
+  }
 
   const collector = new Collector(program);
   for (const name of rootNodeNames) {
