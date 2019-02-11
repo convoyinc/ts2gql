@@ -81,21 +81,24 @@ export interface GraphQLDefinitionNode extends TranspiledNode, NamedNode {
 export interface ObjectTypeDefinitionNode extends GraphQLDefinitionNode {
   kind:GQLDefinitionKind.OBJECT_DEFINITION;
   fields:OutputFieldDefinitionNode[];
+  implements:ReferenceNode[];
 }
 
 export interface InterfaceTypeDefinitionNode extends GraphQLDefinitionNode {
   kind:GQLDefinitionKind.INTERFACE_DEFINITION;
   fields:OutputFieldDefinitionNode[];
-}
-
-export interface EnumTypeDefinitionNode extends GraphQLDefinitionNode {
-  kind:GQLDefinitionKind.ENUM_DEFINITION;
-  values:string[];
+  implements:ReferenceNode[];
 }
 
 export interface InputObjectTypeDefinition extends GraphQLDefinitionNode {
   kind:GQLDefinitionKind.INPUT_OBJECT_DEFINITION;
   fields:InputFieldDefinitionNode[];
+  implements:ReferenceNode[];
+}
+
+export interface EnumTypeDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.ENUM_DEFINITION;
+  values:string[];
 }
 
 export interface UnionTypeDefinitionNode extends GraphQLDefinitionNode, NullableNode {

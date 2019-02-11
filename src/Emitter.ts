@@ -10,7 +10,6 @@ export default class Emitter {
   private root:types.SchemaDefinitionNode;
   constructor(collector:CollectorType) {
     this.typeMap = collector.types;
-    console.log(JSON.stringify([...this.typeMap], undefined, 1));
     if (!collector.root) {
       throw new Error(`Empty schema definition.`);
     }
@@ -61,17 +60,35 @@ export default class Emitter {
   }
 
   emitSchema() {
-    const properties = [
-      `query: ${this.root.query}`,
-      this.root.mutation ? `mutation: ${this.root.mutation}` : '',
-    ];
+    const properties = [`query: ${this.root.query}`];
+    if (this.root.mutation) {
+      properties.push(`mutation: ${this.root.mutation}`);
+    }
     return `schema {\n${this._indent(properties)}\n}`;
   }
 
   // Specialized emitters
 
   _emitObject(node:types.ObjectTypeDefinitionNode, name:string):string {
-    return `type ${this._name(name)} {\n${this._emitFields(node.fields)}\n}`;
+    let emittedImplements = this._emitImplementations(node);
+    if (emittedImplements) {
+      emittedImplements = ' ' + emittedImplements;
+    }
+    return `type ${this._name(name)}${emittedImplements} {\n${this._emitFields(node.fields)}\n}`;
+  }
+
+  _emitImplementations(node:types.ObjectTypeDefinitionNode):string {
+    const implemented = node.implements.filter(reference => {
+      const referenced = this.typeMap.get(reference.target);
+      if (!referenced) {
+        return false;
+      }
+      return referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION;
+    }).map(reference => this._name(reference.target));
+    if (implemented.length === 0) {
+      return '';
+    }
+    return `implements ${implemented.join(' & ')}`;
   }
 
   _emitInterface(node:types.InterfaceTypeDefinitionNode, name:types.SymbolName):string {

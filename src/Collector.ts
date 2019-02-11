@@ -117,14 +117,17 @@ export class Collector implements CollectorType {
     return typeDefinition;
   }
 
-  _walkInherited(node:typescript.InterfaceDeclaration):types.SymbolName[] {
-    const inherits:string[] = [];
+  _walkInherited(node:typescript.InterfaceDeclaration):types.ReferenceNode[] {
+    const inherits:types.ReferenceNode[] = [];
     if (node.heritageClauses) {
       for (const clause of node.heritageClauses) {
         for (const type of clause.types) {
           const symbol = this._symbolForNode(type.expression);
-          this._walkSymbolDeclaration(symbol);
-          inherits.push(this._nameForSymbol(symbol));
+          const inheritedDeclaration = this._walkSymbolDeclaration(symbol);
+          inherits.push({
+            nullable: false,
+            target: inheritedDeclaration.name,
+          });
         }
       }
     }
@@ -220,7 +223,8 @@ export class Collector implements CollectorType {
       throw e;
     }
 
-    const inheritedFields = _.flatten(inherits.map((inheritedName:string) => {
+    const inheritedFields = _.flatten(inherits.map((inherited:types.ReferenceNode) => {
+      const inheritedName = inherited.target;
       const inheritedDefinition = this.types.get(inheritedName);
       if (!inheritedDefinition) {
         throw new Error(`Could not find declaration for '${inheritedName}'.`);
@@ -253,6 +257,7 @@ export class Collector implements CollectorType {
     const collected = {
       documentation,
       name,
+      implements: inherits,
       fields: mergedFields,
     } as types.InterfaceTypeDefinitionNode | types.InputObjectTypeDefinition;
     collected.kind = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
@@ -496,7 +501,7 @@ export class Collector implements CollectorType {
   _collectUnionDefinition(node:typescript.UnionTypeNode, name:types.SymbolName):types.UnionTypeDefinitionNode |
   types.DefinitionAliasNode {
     const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
-    const nullable = unionMembers.length < node.types.length || unionMembers.some(member => !member.nullable);
+    const nullable = unionMembers.length < node.types.length || unionMembers.every(member => member.nullable);
 
     // GraphQL only allow unions of GraphQL Objects
     const collectedUnion = unionMembers.map((member) => {
@@ -616,6 +621,7 @@ export class Collector implements CollectorType {
       originalColumn: node.originalColumn,
       kind: types.GQLDefinitionKind.OBJECT_DEFINITION,
       name: node.name,
+      implements: node.implements,
       fields: node.fields,
     };
   }
