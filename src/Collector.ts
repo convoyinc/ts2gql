@@ -142,14 +142,14 @@ export class Collector implements CollectorType {
     if (!declarations || declarations.length === 0) {
       throw new Error(`Could not find TypeScript declarations for symbol ${symbol.name}.`);
     } else if (declarations.length > 1) {
-      throw new Error(`Conflicting declarations for symbol ${symbol.name}.`);
+      // throw new Error(`Conflicting declarations for symbol ${symbol.name}.`);
     }
     return this._walkDeclaration(declarations[0]);
   }
 
   _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.ReferenceTypeNode {
     if (!node.typeName.getText()) {
-      throw new Error(`Missing reference name`);
+      throw new Error(`Missing reference name.`);
     }
     return this._collectReferenceForSymbol(this._symbolForNode(node.typeName));
   }
@@ -308,7 +308,7 @@ export class Collector implements CollectorType {
     if (!util.isOutputType(type)) {
       const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
       const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
-      const msg = `Argument lists accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
+      const msg = `Field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
       throw new Error(`At property '${name}'\n${msg}`);
     }
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
@@ -450,7 +450,6 @@ export class Collector implements CollectorType {
     } else {
       const aliasType = this._walkType(node.type);
       const doc = util.documentationForNode(node.type);
-
       if (util.isBuiltInScalar(aliasType)) {
         definition = {
           name,
@@ -536,42 +535,14 @@ export class Collector implements CollectorType {
   }
 
   _collectEnumDeclaration(node:typescript.EnumDeclaration):types.EnumTypeDefinitionNode {
-    const values = node.members.map(m => {
-      // If the user provides an initializer, use the value of the initializer
-      // as the GQL enum value _unless_ the initializer is a numeric literal.
-      if (m.initializer && m.initializer.kind !== SyntaxKind.NumericLiteral) {
-        /**
-         *  Enums with initializers can look like:
-         *
-         *    export enum Type {
-         *      CREATED  = <any>'CREATED',
-         *      ACCEPTED = <any>'ACCEPTED',
-         *    }
-         *
-         *    export enum Type {
-         *      CREATED  = 'CREATED',
-         *      ACCEPTED = 'ACCEPTED',
-         *    }
-         *
-         *    export enum Type {
-         *      CREATED  = "CREATED",
-         *      ACCEPTED = "ACCEPTED",
-         *    }
-         */
-        const target = _.last(m.initializer.getChildren()) || m.initializer;
-        return _.trim(target.getText(), "'\"");
-      } else {
-        /**
-         *  For Enums without initializers (or with numeric literal initializers), emit the
-         *  EnumMember name as the value. Example:
-         *    export enum Type {
-         *      CREATED,
-         *      ACCEPTED,
-         *    }
-         */
-        return _.trim(m.name.getText(), "'\"");
-      }
-    });
+    // If the user provides an initializer, ignore and use the initializer itself.
+      // The initializer regards server functioning and should not interfere in protocol description.
+    const values = _.uniq(node.members.map(m => _.trim(m.name.getText(), "'\"")).filter(name => name.length > 0));
+
+    if (values.length === 0) {
+      throw new Error(`GraphQL Enums must have at least one or more unique enum values.`);
+    }
+
     return this._addTypeDefinition({
       name: node.name.getText(),
       kind: types.GQLDefinitionKind.ENUM_DEFINITION,
@@ -595,7 +566,7 @@ export class Collector implements CollectorType {
   _symbolForNode(node:typescript.Node):typescript.Symbol {
     const symbol = this.checker.getSymbolAtLocation(node);
     if (!symbol) {
-      throw new Error(`Could not find symbol for\n${node.getText()}`);
+      throw new Error(`Could not find declaration for symbol ${node.getText()}`);
     }
     return this._expandSymbol(symbol);
   }
