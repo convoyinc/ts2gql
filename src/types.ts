@@ -1,3 +1,4 @@
+import { ReferenceTypeNode } from './types';
 import * as doctrine from 'doctrine';
 
 export type SymbolName = string;
@@ -201,14 +202,14 @@ export type ListTypeNode = ListNode<NamedTypeNode>;
 export type ReferenceTypeNode = ObjectTypeNode | InterfaceTypeNode | EnumTypeNode | InputObjectTypeNode | UnionTypeNode
 | CustomScalarTypeNode;
 
-export const DefinitionFromType = {
-  [GQLDefinitionKind.OBJECT_DEFINITION]:GQLTypeKind.OBJECT_TYPE,
-  [GQLDefinitionKind.INTERFACE_DEFINITION]:GQLTypeKind.INTERFACE_TYPE,
-  [GQLDefinitionKind.ENUM_DEFINITION]:GQLTypeKind.ENUM_TYPE,
-  [GQLDefinitionKind.INPUT_OBJECT_DEFINITION]:GQLTypeKind.INPUT_OBJECT_TYPE,
-  [GQLDefinitionKind.UNION_DEFINITION]:GQLTypeKind.UNION_TYPE,
-  [GQLDefinitionKind.SCALAR_DEFINITION]:GQLTypeKind.CUSTOM_SCALAR_TYPE,
-};
+export const DefinitionFromType = new Map<GQLDefinitionKind, ReferenceTypeNode['kind']>([
+  [GQLDefinitionKind.OBJECT_DEFINITION, GQLTypeKind.OBJECT_TYPE],
+  [GQLDefinitionKind.INTERFACE_DEFINITION, GQLTypeKind.INTERFACE_TYPE],
+  [GQLDefinitionKind.ENUM_DEFINITION, GQLTypeKind.ENUM_TYPE],
+  [GQLDefinitionKind.INPUT_OBJECT_DEFINITION, GQLTypeKind.INPUT_OBJECT_TYPE],
+  [GQLDefinitionKind.UNION_DEFINITION, GQLTypeKind.UNION_TYPE],
+  [GQLDefinitionKind.SCALAR_DEFINITION, GQLTypeKind.CUSTOM_SCALAR_TYPE],
+]);
 
 export interface ObjectTypeNode extends GraphQLTypeNode, ReferenceNode {
   kind:GQLTypeKind.OBJECT_TYPE;

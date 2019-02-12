@@ -147,7 +147,8 @@ export class Collector implements CollectorType {
     return this._walkDeclaration(declarations[0]);
   }
 
-  _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.ReferenceTypeNode {
+  _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.ReferenceTypeNode | types.IntTypeNode
+  | types.IDTypeNode {
     if (!node.typeName.getText()) {
       throw new Error(`Missing reference name.`);
     }
@@ -308,7 +309,7 @@ export class Collector implements CollectorType {
     if (!util.isOutputType(type)) {
       const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
       const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
-      const msg = `Field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
+      const msg = `Object field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
       throw new Error(`At property '${name}'\n${msg}`);
     }
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
@@ -360,7 +361,7 @@ export class Collector implements CollectorType {
     };
   }
 
-  _collectReferenceForSymbol(symbol:typescript.Symbol):types.ReferenceTypeNode {
+  _collectReferenceForSymbol(symbol:typescript.Symbol):types.ReferenceTypeNode | types.IntTypeNode | types.IDTypeNode {
     let referenced = this._walkSymbolDeclaration(symbol);
     const name = this._nameForSymbol(symbol);
 
@@ -380,17 +381,38 @@ export class Collector implements CollectorType {
       nullable = referenced.nullable;
     }
 
-    let kind = types.DefinitionFromType[referenced.kind];
+    const reference  = {
+      target: name,
+      nullable,
+    } as types.ReferenceTypeNode | types.IntTypeNode | types.IDTypeNode;
+
+    let kind:types.ReferenceTypeNode['kind'] | types.GQLTypeKind.INT_TYPE | types.GQLTypeKind.ID_TYPE | undefined;
+    if (referenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
+      let aliasedRef:types.DefinitionAliasNode|types.TypeDefinitionNode = referenced;
+      while (aliasedRef.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
+        const aliasedTarget = this.types.get(aliasedRef.target);
+        if (!aliasedTarget) {
+          throw new Error(`Broken alias chain. Could not find declaration for aliased symbol ${aliasedRef.target}`);
+        }
+        aliasedRef = aliasedTarget;
+        kind = types.DefinitionFromType.get(aliasedRef.kind);
+      }
+      referenced = aliasedRef;
+    } else {
+      kind = types.DefinitionFromType.get(referenced.kind);
+    }
     // Scalar definitions may mean Int or ID TypeScript definition
     if (referenced.kind === types.GQLDefinitionKind.SCALAR_DEFINITION && referenced.builtIn) {
       kind = referenced.builtIn;
     }
 
-    return {
-      target: name,
-      nullable,
-      kind,
-    };
+    if (!kind) {
+      throw new Error(`Invalid DefinitionKind ${referenced.name}`);
+    }
+
+    reference.kind = kind;
+
+    return reference;
   }
 
   _collectList(node:typescript.ArrayTypeNode):types.ListTypeNode {
@@ -449,7 +471,7 @@ export class Collector implements CollectorType {
       return this._walkUnion(node.type! as typescript.UnionTypeNode, name);
     } else {
       const aliasType = this._walkType(node.type);
-      const doc = util.documentationForNode(node.type);
+      const doc = util.documentationForNode(node);
       if (util.isBuiltInScalar(aliasType)) {
         definition = {
           name,
@@ -476,9 +498,6 @@ export class Collector implements CollectorType {
           target: aliasType.target,
         };
       } else {
-        console.error(node);
-        console.error(`On file ${node.getSourceFile().fileName}`);
-        console.error(`Line ${node.getSourceFile().getStart()}`);
         const msg = `Unsupported alias for GraphQL type ${aliasType.kind}`;
         throw new Error(`At TypeScript Alias '${name}'\n${msg}`);
       }

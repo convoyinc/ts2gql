@@ -50,7 +50,7 @@ export default class Emitter {
         content = this._emitScalarDefinition(node, name);
         break;
       case types.GQLDefinitionKind.DEFINITION_ALIAS:
-        const aliased = this.typeMap[node.target];
+        const aliased = this.typeMap.get(node.target)!;
         content = this.emitTopLevelNode(aliased, name, stream);
         break;
       default:

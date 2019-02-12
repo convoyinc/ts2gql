@@ -55,7 +55,8 @@ export function isScalar(node:types.TypeNode):node is types.ScalarTypeNode {
 
 export function isBuiltInScalar(node:types.TypeNode):node is types.BuiltInScalarTypeNode {
   return node.kind === types.GQLTypeKind.STRING_TYPE || node.kind === types.GQLTypeKind.INT_TYPE
-  || node.kind === types.GQLTypeKind.FLOAT_TYPE || node.kind === types.GQLTypeKind.BOOLEAN_TYPE;
+  || node.kind === types.GQLTypeKind.FLOAT_TYPE || node.kind === types.GQLTypeKind.BOOLEAN_TYPE
+  || node.kind === types.GQLTypeKind.ID_TYPE;
 }
 
 export function isWrappingType(node:types.TypeNode):node is types.WrappingTypeNode {
