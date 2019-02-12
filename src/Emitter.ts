@@ -10,6 +10,7 @@ export default class Emitter {
   private root:types.SchemaDefinitionNode;
   constructor(collector:CollectorType) {
     this.typeMap = collector.types;
+    // console.log(JSON.stringify([...this.typeMap], undefined, 1))
     if (!collector.root) {
       throw new Error(`Empty schema definition.`);
     }
@@ -110,10 +111,10 @@ export default class Emitter {
   }
 
   _emitArguments(args?:(types.InputValueDefinitionNode | types.DirectiveInputValueNode)[]):string {
-    return args ? `(${args.map(this._emitInputValue).join(', ')})` : '';
+    return args && args.length > 0 ? `(${args.map(this._emitInputValue).join(', ')})` : '';
   }
 
-  _emitInputValue(node:types.InputValueDefinitionNode | types.DirectiveInputValueNode):string {
+  _emitInputValue = (node:types.InputValueDefinitionNode | types.DirectiveInputValueNode):string => {
     return `${this._name(node.name)}: ${this._emitExpression(node.value)}`;
   }
 

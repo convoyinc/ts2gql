@@ -222,6 +222,11 @@ export class Collector implements CollectorType {
       throw e;
     }
 
+    if (ownFields.length !== _.uniqBy(ownFields, field => field.name).length) {
+      const msg = `Conflicting field names.`;
+      throw new Error(`At interface '${name}'\n${msg}`);
+    }
+
     const inheritedFields = _.flatten(inherits.map((inherited:types.ReferenceNode) => {
       const inheritedName = inherited.target;
       const inheritedDefinition = this.types.get(inheritedName);
@@ -269,41 +274,36 @@ export class Collector implements CollectorType {
   _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory.OUTPUT)
   :types.OutputFieldDefinitionNode;
   _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory):types.FieldDefinitionNode {
-    let signature:typescript.MethodSignature|typescript.PropertySignature;
+    let signature;
+    let signatureType;
     let args;
-    if (field.kind === SyntaxKind.MethodSignature || (field.kind === SyntaxKind.PropertySignature &&
-    typescript.isFunctionTypeNode((field as typescript.PropertySignature).type!))) {
-      signature = field as typescript.MethodSignature;
-      if (category === types.GQLTypeCategory.INPUT) {
-        const msg = `GraphQL Input Objects Fields must not have argument lists.`;
-        throw new Error(`At property '${signature.name.getText()}'\n${msg}`);
+    if (typescript.isMethodSignature(field)) {
+      signature = field;
+      signatureType = signature.type!;
+      args = this._collectArgumentsDefinition(signature.parameters);
+    } else if (typescript.isPropertySignature(field)) {
+      signature = field;
+      signatureType = signature.type!;
+      if (typescript.isFunctionTypeNode(signatureType)) {
+        args = this._collectArgumentsDefinition(signatureType.parameters);
       }
-      try {
-        args = this._collectArgumentsDefinition(signature.parameters);
-      } catch (e) {
-        e.message = `At function property ${signature.name.getText()}\n${e.message}`;
-      }
-    } else if (field.kind === SyntaxKind.PropertySignature) {
-      signature = field as typescript.PropertySignature;
     } else {
       throw new Error(`TypeScript ${field.kind} doesn't have a valid Field Signature.`);
     }
-    const name = signature.name.getText();
+    const name = signature.name!.getText();
+    if (category === types.GQLTypeCategory.INPUT && args) {
+      const msg = `GraphQL Input Objects Fields must not have argument lists.`;
+      throw new Error(`At property '${name}'\n${msg}`);
+    }
 
     let type;
     try {
-      type = this._walkType(signature.type!);
+      type = this._walkType(typescript.isFunctionTypeNode(signatureType) ? signatureType.type! : signatureType);
     } catch (e) {
       e.message = `At property '${name}'\n${e.message}`;
       throw e;
     }
 
-    if (!util.isOutputType(type)) {
-      const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
-      const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
-      const msg = `Object field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
-      throw new Error(`At property '${name}'\n${msg}`);
-    }
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
         type.nullable = true;
     }
@@ -319,6 +319,24 @@ export class Collector implements CollectorType {
       }
     }
 
+    if (category === types.GQLTypeCategory.OUTPUT) {
+      if (!util.isOutputType(type)) {
+        const acceptedOutputs = 'Scalars, Input Objects and Enums';
+        const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
+        const msg = `Input Object field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
+        throw new Error(`At property '${name}'\n${msg}`);
+      }
+    } else if (category === types.GQLTypeCategory.INPUT) {
+      if (!util.isInputType(type)) {
+        const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
+        const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
+        const msg = `Object field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
+        throw new Error(`At property '${name}'\n${msg}`);
+      }
+    } else {
+      throw new Error(`Invalid Field Kind ${type.kind}`);
+    }
+
     return {
       documentation,
       name,
@@ -332,7 +350,11 @@ export class Collector implements CollectorType {
 
   _collectArgumentsDefinition(params:typescript.NodeArray<typescript.ParameterDeclaration>)
   :types.InputValueDefinitionNode[] {
-    return params.map(this._collectInputValueDefinition);
+    const inputValues = params.map(this._collectInputValueDefinition);
+    if (inputValues.length !== _.uniqBy(inputValues, input => input.name).length) {
+      throw new Error(`Conflicting parameters in argument list.`);
+    }
+    return inputValues;
   }
 
   _collectInputValueDefinition = (param:typescript.ParameterDeclaration):types.InputValueDefinitionNode => {
@@ -387,6 +409,7 @@ export class Collector implements CollectorType {
         }
         aliasedRef = aliasedTarget;
         kind = types.DefinitionFromType.get(aliasedRef.kind);
+
       }
       referenced = aliasedRef;
     } else {

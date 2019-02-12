@@ -128,17 +128,19 @@ export type TypeDefinitionMap = Map<string, TypeDefinitionNode>;
 export interface FieldDefinitionNode extends GraphQLDefinitionNode {
   kind:GQLDefinitionKind.FIELD_DEFINITION;
   category:GQLTypeCategory;
-  type:OutputTypeNode;
+  type:InputTypeNode | OutputTypeNode;
   arguments?:InputValueDefinitionNode[];
   directives?:DirectiveDefinitionNode[];
 }
 
 export interface InputFieldDefinitionNode extends FieldDefinitionNode {
   category:GQLTypeCategory.INPUT;
+  type:InputTypeNode;
 }
 
 export interface OutputFieldDefinitionNode extends FieldDefinitionNode {
   category:GQLTypeCategory.OUTPUT;
+  type:OutputTypeNode;
 }
 
 export interface InputValueDefinitionNode extends GraphQLDefinitionNode {
