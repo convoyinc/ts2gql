@@ -107,7 +107,7 @@ export interface UnionTypeDefinitionNode extends GraphQLDefinitionNode, Nullable
   members:ObjectTypeNode[];
 }
 
-export interface ScalarTypeDefinitionNode extends GraphQLDefinitionNode {
+export interface ScalarTypeDefinitionNode extends GraphQLDefinitionNode, NullableNode {
   kind:GQLDefinitionKind.SCALAR_DEFINITION;
   builtIn?:GQLTypeKind.INT_TYPE|GQLTypeKind.ID_TYPE;
 }

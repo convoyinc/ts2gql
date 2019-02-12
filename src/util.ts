@@ -33,6 +33,12 @@ export function isReferenceType(node:types.TypeNode):node is types.ReferenceType
   node.kind === types.GQLTypeKind.UNION_TYPE || node.kind === types.GQLTypeKind.CUSTOM_SCALAR_TYPE;
 }
 
+export function isNullableDefinition(node:types.TypeDefinitionNode):node is types.UnionTypeDefinitionNode |
+types.ScalarTypeDefinitionNode  | types.DefinitionAliasNode {
+  return node.kind === types.GQLDefinitionKind.UNION_DEFINITION
+  || node.kind === types.GQLDefinitionKind.SCALAR_DEFINITION || node.kind === types.GQLDefinitionKind.DEFINITION_ALIAS;
+}
+
 export function isOutputType(node:types.TypeNode):node is types.OutputTypeNode {
   if (isWrappingType(node)) {
     return isOutputType(node.wrapped);
