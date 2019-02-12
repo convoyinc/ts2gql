@@ -120,10 +120,10 @@ export class Collector implements CollectorType {
       for (const clause of node.heritageClauses) {
         for (const type of clause.types) {
           const symbol = this._symbolForNode(type.expression);
-          const inheritedDeclaration = this._walkSymbolDeclaration(symbol);
+          this._walkSymbolDeclaration(symbol);
           inherits.push({
             nullable: false,
-            target: inheritedDeclaration.name,
+            target: this._nameForSymbol(symbol),
           });
         }
       }
@@ -231,7 +231,7 @@ export class Collector implements CollectorType {
       const inheritedName = inherited.target;
       const inheritedDefinition = this.types.get(inheritedName);
       if (!inheritedDefinition) {
-        throw new Error(`Could not find declaration for '${inheritedName}'.`);
+        throw new Error(`Found circular reference in inherited interface '${inheritedName}'.`);
       } else if (!inheritedDefinitionChecker(inheritedDefinition)) {
           const expectedType = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
           : `${types.GQLDefinitionKind.OBJECT_DEFINITION} or ${types.GQLDefinitionKind.INTERFACE_DEFINITION}`;
@@ -381,6 +381,8 @@ export class Collector implements CollectorType {
 
     if (!referenced) {
       throw new Error(`Could not find declaration for symbol '${name}'.`);
+    } else if (!referenced.kind) {
+      throw new Error(`Found circular reference for symbol '${name}'.`);
     } else if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
       const concreteReference = this._concrete(referenced);
       this.ts2GqlMap.set(this.gql2TsMap.get(referenced.name)!, concreteReference);
@@ -409,7 +411,6 @@ export class Collector implements CollectorType {
         }
         aliasedRef = aliasedTarget;
         kind = types.DefinitionFromType.get(aliasedRef.kind);
-
       }
       referenced = aliasedRef;
     } else {
