@@ -23,7 +23,7 @@ export class Collector implements CollectorType {
   root?:types.SchemaDefinitionNode;
   private checker:typescript.TypeChecker;
   private ts2GqlMap:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
-  private gql2TsMap:Map<types.SymbolName, typescript.Node> = new Map();
+  private unresolvedCircular:Map<string, typescript.TypeAliasDeclaration|typescript.InterfaceDeclaration> = new Map();
 
   constructor(program:typescript.Program) {
     this.checker = program.getTypeChecker();
@@ -113,6 +113,14 @@ export class Collector implements CollectorType {
     }
 
     Object.assign(typeDefinition, result);
+    const pending = this.unresolvedCircular.get(typeDefinition.name);
+    if (pending) {
+      const pendingName = pending.name.getText();
+      this.ts2GqlMap.delete(pending);
+      this.types.delete(pendingName);
+      this.unresolvedCircular.delete(typeDefinition.name);
+      this._walkDeclaration(pending);
+    }
     return typeDefinition;
   }
 
@@ -322,8 +330,13 @@ export class Collector implements CollectorType {
 
     // When circularly referencing:
     if (type.kind === types.GQLTypeKind.CIRCULAR_TYPE) {
+      const circularlyReferenced = this.types.get(type.target);
+      if (circularlyReferenced && circularlyReferenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
+        // Aliases are not reliable and demand to recollect the current node
+        this.unresolvedCircular.set(type.target, field.parent! as typescript.InterfaceDeclaration);
+      }
       if (category === types.GQLTypeCategory.INPUT) {
-        // If field of future GraphQL Input, expect it to be reference to GraphQL Input
+        // If field of future GraphQL Input, expect TypeScript interface/type to be reference to GraphQL Input
         type = {
           nullable: type.nullable,
           target: type.target,
@@ -413,7 +426,6 @@ export class Collector implements CollectorType {
   _collectReferenceForSymbol(symbol:typescript.Symbol):types.ReferenceTypeNode | types.IntTypeNode | types.IDTypeNode {
     let referenced = this._walkSymbolDeclaration(symbol);
     const name = this._nameForSymbol(symbol);
-
     if (!referenced) {
       throw new Error(`Could not find declaration for symbol '${name}'.`);
     } else if (!this.types.get(name)) {
@@ -424,7 +436,6 @@ export class Collector implements CollectorType {
       };
     } else if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
       const concreteReference = this._concrete(referenced);
-      this.ts2GqlMap.set(this.gql2TsMap.get(referenced.name)!, concreteReference);
       this.types.set(name, concreteReference);
       referenced = concreteReference;
     }
@@ -515,8 +526,8 @@ export class Collector implements CollectorType {
     let definition:types.ScalarTypeDefinitionNode | types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode |
     types.DefinitionAliasNode;
     try {
-      if (node.type!.kind === SyntaxKind.UnionType) {
-        definition = this._walkUnion(node.type! as typescript.UnionTypeNode, name, doc);
+      if (typescript.isUnionTypeNode(node.type)) {
+        definition = this._walkUnion(node.type, name, doc);
       } else {
         const aliasType = this._walkType(node.type);
         if (util.isBuiltInScalar(aliasType)) {
@@ -529,6 +540,10 @@ export class Collector implements CollectorType {
           };
           definition.builtIn = this._collectIntOrIDKind(aliasType, doc);
         } else if (util.isReferenceType(aliasType)) {
+          if (aliasType.kind === types.GQLTypeKind.CIRCULAR_TYPE) {
+            // Enqueue this alias resolution
+            this.unresolvedCircular.set(aliasType.target, node);
+          }
           definition = {
             documentation: doc,
             description: this._collectDescription(doc),
@@ -764,7 +779,7 @@ export class Collector implements CollectorType {
       while (aliasedRef.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
         const aliasedTarget = this.types.get(aliasedRef.target);
         if (!aliasedTarget) {
-          throw new Error(`Broken alias chain. Could not find declaration for aliased symbol ${aliasedRef.target}`);
+          throw new Error(`Alias declaration '${aliasedRef.target}' references itself circularly.`);
         }
         aliasedRef = aliasedTarget;
       }

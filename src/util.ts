@@ -30,7 +30,8 @@ export function extractTagDescription(doc:doctrine.ParseResult|undefined, regex:
 export function isReferenceType(node:types.TypeNode):node is types.ReferenceTypeNode {
   return node.kind === types.GQLTypeKind.OBJECT_TYPE || node.kind === types.GQLTypeKind.INTERFACE_TYPE ||
   node.kind === types.GQLTypeKind.ENUM_TYPE || node.kind === types.GQLTypeKind.INPUT_OBJECT_TYPE ||
-  node.kind === types.GQLTypeKind.UNION_TYPE || node.kind === types.GQLTypeKind.CUSTOM_SCALAR_TYPE;
+  node.kind === types.GQLTypeKind.UNION_TYPE || node.kind === types.GQLTypeKind.CUSTOM_SCALAR_TYPE ||
+  node.kind === types.GQLTypeKind.CIRCULAR_TYPE;
 }
 
 export function isNullableDefinition(node:types.TypeDefinitionNode):node is types.UnionTypeDefinitionNode |
