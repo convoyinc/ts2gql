@@ -4,6 +4,7 @@ import * as typescript from 'typescript';
 
 import * as types from './types';
 import * as util from './util';
+import * as excpt from './Exceptions';
 import { MethodParamsParser } from './Parser';
 
 const SyntaxKind = typescript.SyntaxKind;
@@ -33,20 +34,20 @@ export class Collector implements CollectorType {
     if (collectedRoot.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
       this.types.set(collectedRoot.name, this._concrete(collectedRoot));
     } else if (collectedRoot.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION) {
-      throw new Error(`Expected root definition ${node.name.getText()} as GraphQL Object definition.`
-      + `Got ${collectedRoot.kind}.`);
+      throw new excpt.InterfaceError(node,
+        `Expected root definition ${node.name.getText()} as GraphQL Object definition. Got ${collectedRoot.kind}.`);
     }
 
     if (collectedRoot.fields.some(field => field.name !== 'query' && field.name !== 'mutation')) {
-      throw new Error(`Schema definition may only have query or mutation fields.`);
+      throw new excpt.InterfaceError(node, `Schema definition may only have query or mutation fields.`);
     }
 
     // Update root node
     const queryField = collectedRoot.fields.find(field => field.name === 'query');
     if (!queryField) {
-      throw new Error(`Schema definition without query field.`);
+      throw new excpt.InterfaceError(node, `Schema definition without query field.`);
     } else if (queryField.type.kind !== types.GQLTypeKind.OBJECT_TYPE) {
-      throw new Error(`Query root definition must be a GraphQL Object.`);
+      throw new excpt.InterfaceError(node, `Query root definition must be a GraphQL Object.`);
     }
 
     this.root = {
@@ -56,7 +57,7 @@ export class Collector implements CollectorType {
     const mutationField = collectedRoot.fields.find(field => field.name === 'mutation');
     if (mutationField) {
       if (mutationField.type.kind !== types.GQLTypeKind.OBJECT_TYPE) {
-        throw new Error(`Mutation root definition must be a GraphQL Object.`);
+        throw new excpt.InterfaceError(node, `Mutation root definition must be a GraphQL Object.`);
       }
       this.root = {
         ...this.root,
@@ -71,10 +72,10 @@ export class Collector implements CollectorType {
   mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
     const existing = this.types.get(name);
     if (!existing) {
-      throw new Error(`Cannot override '${name}' - it was never included`);
+      throw new excpt.InterfaceError(node, `Cannot override '${name}' - it was never included`);
     } else if (existing.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION
       && existing.kind !== types.GQLDefinitionKind.INTERFACE_DEFINITION) {
-        throw new Error(`Cannot override '${name}' - it is not a GraphQL Type or Interface`);
+        throw new excpt.InterfaceError(node, `Cannot override '${name}' - it is not a GraphQL Type or Interface`);
     }
     const overrides = node.members.map(member => this._collectFieldDefinition(member, types.GQLTypeCategory.OUTPUT));
     const overriddenNames = new Set(overrides.map(prop => prop.name));
@@ -107,7 +108,8 @@ export class Collector implements CollectorType {
         result = this._collectEnumDeclaration(node as typescript.EnumDeclaration);
         break;
       default:
-        throw new Error(`Don't know how to handle ${node.getText()} as ${SyntaxKind[node.kind]} node`);
+        throw new excpt.TranspilationError(node,
+          `Don't know how to handle ${node.getText()} as ${SyntaxKind[node.kind]} node`);
     }
 
     Object.assign(typeDefinition, result);
@@ -218,34 +220,31 @@ export class Collector implements CollectorType {
         return this._collectFieldDefinition(member, types.GQLTypeCategory.OUTPUT);
       });
     } catch (e) {
-      e.message = `At interface '${name}'\n${e.message}`;
-      throw e;
+      throw new excpt.InterfaceError(node, e.message);
     }
 
     if (ownFields.length !== _.uniqBy(ownFields, field => field.name).length) {
-      const msg = `Conflicting field names.`;
-      throw new Error(`At interface '${name}'\n${msg}`);
+      throw new excpt.InterfaceError(node, `Conflicting field names.`);
     }
 
     const inheritedFields = _.flatten(inherits.map((inherited:types.ReferenceNode) => {
       const inheritedName = inherited.target;
       const inheritedDefinition = this.types.get(inheritedName);
       if (!inheritedDefinition) {
-        throw new Error(`Found circular reference in inherited interface '${inheritedName}'.`);
+        throw new excpt.InterfaceError(node, `Found circular reference in inherited interface '${inheritedName}'.`);
       } else if (!inheritedDefinitionChecker(inheritedDefinition)) {
           const expectedType = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
           : `${types.GQLDefinitionKind.OBJECT_DEFINITION} or ${types.GQLDefinitionKind.INTERFACE_DEFINITION}`;
           const msg = `Incompatible inheritance of '${inheritedDefinition.name}'.`
           + ` Expected type '${expectedType}', got '${inheritedDefinition.kind}'.`;
-          throw new Error(`At interface '${name}'\n${msg}`);
+          throw new excpt.InterfaceError(node, msg);
       }
       return inheritedDefinition.fields as types.FieldDefinitionNode[];
     }));
 
     const inheritedPropNames = inheritedFields.map(field => field.name);
     if (_.uniq(inheritedPropNames).length !== inheritedPropNames.length) {
-      const msg = `There are conflicting properties between inherited TypeScript interfaces.`;
-      throw new Error(`At interface '${name}'\n${msg}`);
+      throw new excpt.InterfaceError(node, `There are conflicting properties between inherited TypeScript interfaces.`);
     }
 
     const ownFieldNames = new Set(ownFields.map(field => field.name));
@@ -254,8 +253,7 @@ export class Collector implements CollectorType {
     }));
 
     if (mergedFields.length === 0) {
-      const msg = `GraphQL does not allow Objects and Interfaces without fields.`;
-      throw new Error(`At interface '${name}'\n${msg}`);
+      throw new excpt.InterfaceError(node, `GraphQL does not allow Objects and Interfaces without fields.`);
     }
 
     const collected = {
@@ -288,20 +286,18 @@ export class Collector implements CollectorType {
         args = this._collectArgumentsDefinition(signatureType.parameters);
       }
     } else {
-      throw new Error(`TypeScript ${field.kind} doesn't have a valid Field Signature.`);
+      throw new excpt.PropertyError(field, `TypeScript ${field.kind} doesn't have a valid Field Signature.`);
     }
     const name = signature.name!.getText();
     if (category === types.GQLTypeCategory.INPUT && args) {
-      const msg = `GraphQL Input Objects Fields must not have argument lists.`;
-      throw new Error(`At property '${name}'\n${msg}`);
+      throw new excpt.PropertyError(field, `GraphQL Input Objects Fields must not have argument lists.`);
     }
 
     let type;
     try {
       type = this._walkType(typescript.isFunctionTypeNode(signatureType) ? signatureType.type! : signatureType);
     } catch (e) {
-      e.message = `At property '${name}'\n${e.message}`;
-      throw e;
+      throw new excpt.PropertyError(field, e.message);
     }
 
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
@@ -314,8 +310,7 @@ export class Collector implements CollectorType {
       try {
         directives = documentation ? this._collectDirectives(documentation) : [];
       } catch (e) {
-        e.message = `At property '${name}'\n${e.message}`;
-        throw e;
+        throw new excpt.PropertyError(field, e.message);
       }
     }
 
@@ -324,17 +319,17 @@ export class Collector implements CollectorType {
         const acceptedOutputs = 'Scalars, Input Objects and Enums';
         const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
         const msg = `Input Object field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
-        throw new Error(`At property '${name}'\n${msg}`);
+        throw new excpt.PropertyError(field, msg);
       }
     } else if (category === types.GQLTypeCategory.INPUT) {
       if (!util.isInputType(type)) {
         const acceptedOutputs = 'Scalars, Objects, Interfaces, Unions and Enums';
         const kind = util.isWrappingType(type) ? type.wrapped.kind : type.kind;
         const msg = `Object field types accept only GraphQL ${acceptedOutputs}. Got ${kind}.`;
-        throw new Error(`At property '${name}'\n${msg}`);
+        throw new excpt.PropertyError(field, msg);
       }
     } else {
-      throw new Error(`Invalid Field Kind ${type.kind}`);
+      throw new excpt.PropertyError(field, `Invalid Field Kind ${type.kind}`);
     }
 
     return {
@@ -363,7 +358,7 @@ export class Collector implements CollectorType {
     if (!util.isInputType(collected)) {
       const kind = util.isWrappingType(collected) ? collected.wrapped.kind : collected.kind;
       const msg = `Argument lists accept only GraphQL Scalars, Enums and Input Object types. Got ${kind}.`;
-      throw new Error(`At parameter '${name}'\n${msg}`);
+      throw new excpt.InputValueError(param, msg);
     }
     if (param.questionToken) {
       collected.nullable = true;
@@ -503,12 +498,11 @@ export class Collector implements CollectorType {
             target: aliasType.target,
           };
         } else {
-          throw new Error(`Unsupported alias for GraphQL type ${aliasType.kind}`);
+          throw new excpt.TypeAliasError(node, `Unsupported alias for GraphQL type ${aliasType.kind}`);
         }
       }
     } catch (e) {
-      e.message = `At TypeScript Alias '${name}'\n${e.message}`;
-      throw e;
+      throw new excpt.TypeAliasError(node, e.message);
     }
     return this._addTypeDefinition(definition);
   }
@@ -601,7 +595,7 @@ export class Collector implements CollectorType {
     const values = _.uniq(node.members.map(m => _.trim(m.name.getText(), "'\"")).filter(name => name.length > 0));
 
     if (values.length === 0) {
-      throw new Error(`GraphQL Enums must have at least one or more unique enum values.`);
+      throw new excpt.EnumError(node, `GraphQL Enums must have at least one or more unique enum values.`);
     }
 
     return this._addTypeDefinition({

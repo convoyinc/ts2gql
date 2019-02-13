@@ -10,7 +10,6 @@ export default class Emitter {
   private root:types.SchemaDefinitionNode;
   constructor(collector:CollectorType) {
     this.typeMap = collector.types;
-    // console.log(JSON.stringify([...this.typeMap], undefined, 1))
     if (!collector.root) {
       throw new Error(`Empty schema definition.`);
     }
