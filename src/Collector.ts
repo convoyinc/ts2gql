@@ -152,7 +152,7 @@ export class Collector implements CollectorType {
   }
 
   _walkType = (node:typescript.Node):types.TypeNode => {
-    let result:types.TypeNode;
+    let result;
     switch (node.kind) {
       case SyntaxKind.ParenthesizedType:
         const parenthesizedNode = node as typescript.ParenthesizedTypeNode;
@@ -287,30 +287,56 @@ export class Collector implements CollectorType {
   _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory):types.FieldDefinitionNode {
     let signature;
     let signatureType;
+    let name;
     let args;
     if (typescript.isMethodSignature(field)) {
       signature = field;
       signatureType = signature.type!;
+      name = signature.name.getText();
+      if (category === types.GQLTypeCategory.INPUT) {
+        const msg = `GraphQL Input Objects Fields must not have argument lists.`;
+        throw new Error(`At property '${name}'\n${msg}`);
+      }
       args = this._collectArgumentsDefinition(signature.parameters);
     } else if (typescript.isPropertySignature(field)) {
       signature = field;
       signatureType = signature.type!;
+      name = signature.name.getText();
       if (typescript.isFunctionTypeNode(signatureType)) {
+        if (category === types.GQLTypeCategory.INPUT) {
+          const msg = `GraphQL Input Objects Fields must not have argument lists.`;
+          throw new Error(`At property '${name}'\n${msg}`);
+        }
         args = this._collectArgumentsDefinition(signatureType.parameters);
       }
     } else {
       throw new excpt.PropertyError(field, `TypeScript ${field.kind} doesn't have a valid Field Signature.`);
     }
-    const name = signature.name!.getText();
-    if (category === types.GQLTypeCategory.INPUT && args) {
-      throw new excpt.PropertyError(field, `GraphQL Input Objects Fields must not have argument lists.`);
-    }
 
-    let type;
+    let type:types.TypeNode;
     try {
       type = this._walkType(typescript.isFunctionTypeNode(signatureType) ? signatureType.type! : signatureType);
     } catch (e) {
       throw new excpt.PropertyError(field, e.message);
+    }
+
+    // When circularly referencing:
+    if (type.kind === types.GQLTypeKind.CIRCULAR_TYPE) {
+      if (category === types.GQLTypeCategory.INPUT) {
+        // If field of future GraphQL Input, expect it to be reference to GraphQL Input
+        type = {
+          nullable: type.nullable,
+          target: type.target,
+          kind: types.GQLTypeKind.INPUT_OBJECT_TYPE,
+        };
+      } else {
+        // If field of future GraphQL Object/Interface, expect TypeScript interface/type to be GraphQL Object
+        type = {
+          nullable: type.nullable,
+          target: type.target,
+          kind: types.GQLTypeKind.OBJECT_TYPE,
+        };
+      }
     }
 
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
@@ -390,8 +416,12 @@ export class Collector implements CollectorType {
 
     if (!referenced) {
       throw new Error(`Could not find declaration for symbol '${name}'.`);
-    } else if (!referenced.kind) {
-      throw new Error(`Found circular reference for symbol '${name}'.`);
+    } else if (!this.types.get(name)) {
+      return {
+        nullable: false,
+        target: name,
+        kind: types.GQLTypeKind.CIRCULAR_TYPE,
+      };
     } else if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
       const concreteReference = this._concrete(referenced);
       this.ts2GqlMap.set(this.gql2TsMap.get(referenced.name)!, concreteReference);
