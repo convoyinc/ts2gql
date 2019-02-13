@@ -1,40 +1,26 @@
 import * as types from './types';
 import { MethodParamsTokenizer, MethodParamsToken, TokenType } from './Tokenizer';
 
-export interface PartialParseResult {
-    nextIdx:number;
-}
-
-export interface ArgNameParseResult extends PartialParseResult {
-    argName:string;
-}
-
-export interface ArgValueParseResult extends PartialParseResult {
-    argValue:types.ValueNode;
-}
-
-export class ParsingFailedException extends Error {}
+class ParsingFailedException extends Error {}
 
 export class MethodParamsParser  {
     private tokenizer:MethodParamsTokenizer;
     private tokens:MethodParamsToken[];
-    private args:types.TypeMap;
+    private args:Map<string, types.DirectiveInputValueNode>;
 
     constructor() {
         this.tokenizer = new MethodParamsTokenizer();
         this.tokens = [];
-        this.args = {};
+        this.args = {} as Map<string, types.DirectiveInputValueNode>;
     }
 
-    parse(stringToParse:string):types.MethodParamsNode {
+    parse(stringToParse:string):types.DirectiveInputValueNode[] {
         this.tokens = this.tokenizer.tokenize(stringToParse);
-        return {
-            type: types.NodeType.METHOD_PARAMS,
-            args: this._parseArgs(),
-        };
+        this._parseArgs();
+        return Array.from(this.args.values());
     }
 
-    _parseArgs():types.TypeMap {
+    _parseArgs():Map<string, types.DirectiveInputValueNode> {
         if (!this.tokens || this.tokens[0].type !== TokenType.PARAMETER_LIST_BEGIN) {
             throw new ParsingFailedException(`Token list created without beginning token.`);
         }
@@ -68,8 +54,12 @@ export class MethodParamsParser  {
             throw new ParsingFailedException(`Repeated param name ${nameToken.value}.`);
         }
         this.args[nameToken.value] = {
-            type: types.NodeType.VALUE,
-            value: valueToken.value,
+            name: nameToken.value,
+            kind: types.GQLDefinitionKind.DIRECTIVE_INPUT_VALUE_DEFINITION,
+            value: {
+                kind: types.GQLTypeKind.VALUE,
+                value: valueToken.value,
+            },
         };
 
         return start + 3;

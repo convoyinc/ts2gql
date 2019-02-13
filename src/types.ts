@@ -1,172 +1,271 @@
+import { ReferenceTypeNode } from './types';
 import * as doctrine from 'doctrine';
-import { MethodParamsParser } from './Parser';
 
 export type SymbolName = string;
 
-export interface ComplexNode {
+// GraphQL language description:
+// https://facebook.github.io/graphql/June2018
+
+export interface TranspiledNode {
   documentation?:doctrine.ParseResult;
-  type:NodeType;
+  originalLine?:number;
+  originalColumn?:number;
 }
 
-export enum NodeType {
-  INTERFACE = 'interface',
-  METHOD = 'method',
-  METHOD_PARAMS = 'method params',
+export enum GQLDefinitionKind {
+  // Definitions
+  OBJECT_DEFINITION = 'object definition',
+  INTERFACE_DEFINITION = 'interface definition',
+  ENUM_DEFINITION = 'enum definition',
+  INPUT_OBJECT_DEFINITION = 'input object definition',
+  UNION_DEFINITION = 'union definition',
+  SCALAR_DEFINITION = 'scalar definition',
+  FIELD_DEFINITION = 'field definition',
+  INPUT_VALUE_DEFINITION = 'input value definition',
+  DEFINITION_ALIAS = 'definition alias',
+  // Directives
   DIRECTIVE = 'directive',
-  ARRAY = 'array',
+  DIRECTIVE_INPUT_VALUE_DEFINITION = 'directive input value definition',
+}
+
+export enum GQLTypeKind {
+  // Wrapping Types
+  LIST_TYPE = 'list',
+  // Types
   REFERENCE = 'reference',
-  PROPERTY = 'property',
-  ALIAS = 'alias',
-  ENUM = 'enum',
-  UNION = 'union',
-  LITERAL_OBJECT = 'literal object',
+  OBJECT_TYPE = 'object type',
+  INTERFACE_TYPE = 'interface type',
+  ENUM_TYPE = 'enum type',
+  INPUT_OBJECT_TYPE = 'input object type',
+  UNION_TYPE = 'union type',
+  CUSTOM_SCALAR_TYPE = 'custom scalar',
+  STRING_TYPE = 'string',
+  INT_TYPE = 'int',
+  FLOAT_TYPE = 'float',
+  BOOLEAN_TYPE = 'boolean',
+  ID_TYPE = 'id',
+  // Values
   STRING_LITERAL = 'string literal',
-  STRING = 'string',
-  NUMBER = 'number',
-  BOOLEAN = 'boolean',
-  ANY = 'any',
-  NULL = 'null',
-  UNDEFINED = 'undefined',
-  NOT_NULL = 'not null',
   VALUE = 'value',
 }
 
-export interface InterfaceNode extends ComplexNode {
-  type:NodeType.INTERFACE;
-  members:FieldNode[];
-  inherits:SymbolName[];
-  concrete?:boolean; // Whether the type is directly used (returned).
+//
+// Abstractions
+//
+export interface NamedNode {
+  name:SymbolName;
 }
 
-export interface MethodNode extends ComplexNode {
-  type:NodeType.METHOD;
-  name:string;
-  parameters:MethodParamsNode;
-  returns:Node;
-  directives:DirectiveNode[];
+export interface NullableNode {
+  nullable:boolean;
 }
 
-export interface MethodParamsNode extends ComplexNode {
-  type:NodeType.METHOD_PARAMS;
-  args:TypeMap;
-}
-
-export interface DirectiveNode extends ComplexNode {
-  type:NodeType.DIRECTIVE;
-  name:string;
-  params:MethodParamsNode;
-}
-
-export interface ArrayNode extends ComplexNode {
-  type:NodeType.ARRAY;
-  elements:Node[];
-}
-
-export interface ReferenceNode extends ComplexNode {
-  type:NodeType.REFERENCE;
+export interface ReferenceNode extends NullableNode {
   target:SymbolName;
 }
 
-export interface PropertyNode extends ComplexNode {
-  type:NodeType.PROPERTY;
-  name:string;
-  signature:Node;
+//
+// Root node
+//
+export interface SchemaDefinitionNode extends TranspiledNode {
+  query:SymbolName;
+  mutation?:SymbolName;
 }
 
-export interface AliasNode extends ComplexNode {
-  type:NodeType.ALIAS;
-  target:Node;
+//
+// Type Definitions
+//
+export interface GraphQLDefinitionNode extends TranspiledNode, NamedNode {
+  kind:GQLDefinitionKind;
 }
 
-export interface EnumNode extends ComplexNode {
-  type:NodeType.ENUM;
+export interface ObjectTypeDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.OBJECT_DEFINITION;
+  fields:OutputFieldDefinitionNode[];
+  implements:ReferenceNode[];
+}
+
+export interface InterfaceTypeDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.INTERFACE_DEFINITION;
+  fields:OutputFieldDefinitionNode[];
+  implements:ReferenceNode[];
+}
+
+export interface InputObjectTypeDefinition extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.INPUT_OBJECT_DEFINITION;
+  fields:InputFieldDefinitionNode[];
+  implements:ReferenceNode[];
+}
+
+export interface EnumTypeDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.ENUM_DEFINITION;
   values:string[];
 }
 
-export interface UnionNode extends ComplexNode {
-  type:NodeType.UNION;
-  types:Node[];
+export interface UnionTypeDefinitionNode extends GraphQLDefinitionNode, NullableNode {
+  kind:GQLDefinitionKind.UNION_DEFINITION;
+  members:ObjectTypeNode[];
 }
 
-export interface LiteralObjectNode {
-  type:NodeType.LITERAL_OBJECT;
-  members:Node[];
+export interface ScalarTypeDefinitionNode extends GraphQLDefinitionNode, NullableNode {
+  kind:GQLDefinitionKind.SCALAR_DEFINITION;
+  builtIn?:GQLTypeKind.INT_TYPE|GQLTypeKind.ID_TYPE;
 }
 
-export interface StringLiteralNode {
-  type:NodeType.STRING_LITERAL;
+export interface DefinitionAliasNode extends GraphQLDefinitionNode, NullableNode, ReferenceNode {
+  kind:GQLDefinitionKind.DEFINITION_ALIAS;
+}
+
+export type TypeDefinitionNode = ObjectTypeDefinitionNode | InterfaceTypeDefinitionNode | EnumTypeDefinitionNode |
+InputObjectTypeDefinition | UnionTypeDefinitionNode | ScalarTypeDefinitionNode | DefinitionAliasNode;
+
+export type TypeDefinitionMap = Map<string, TypeDefinitionNode>;
+
+//
+// Other Definitions
+//
+
+export interface FieldDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.FIELD_DEFINITION;
+  category:GQLTypeCategory;
+  type:InputTypeNode | OutputTypeNode;
+  arguments?:InputValueDefinitionNode[];
+  directives?:DirectiveDefinitionNode[];
+}
+
+export interface InputFieldDefinitionNode extends FieldDefinitionNode {
+  category:GQLTypeCategory.INPUT;
+  type:InputTypeNode;
+}
+
+export interface OutputFieldDefinitionNode extends FieldDefinitionNode {
+  category:GQLTypeCategory.OUTPUT;
+  type:OutputTypeNode;
+}
+
+export interface InputValueDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.INPUT_VALUE_DEFINITION;
+  value:InputTypeNode;
+}
+
+export interface DirectiveDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.DIRECTIVE;
+  args:DirectiveInputValueNode[];
+}
+
+export interface DirectiveInputValueNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.DIRECTIVE_INPUT_VALUE_DEFINITION;
+  value:ValueNode;
+}
+
+//
+// Types
+//
+
+// General definitions
+
+export interface GraphQLTypeNode extends TranspiledNode {
+  kind:GQLTypeKind;
+}
+
+export enum GQLTypeCategory {
+  INPUT = 'input',
+  OUTPUT = 'output',
+}
+
+export type NamedInputTypeNode = ScalarTypeNode | EnumTypeNode | InputObjectTypeNode;
+export type NamedOutputTypeNode = ScalarTypeNode | ObjectTypeNode | InterfaceTypeNode | UnionTypeNode | EnumTypeNode;
+export type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode;
+
+export type WrappingInputTypeNode = ListInputTypeNode;
+export type WrappingOutputTypeNode = ListOutputTypeNode;
+export type WrappingTypeNode = ListInputTypeNode | ListOutputTypeNode | ListTypeNode;
+
+export type InputTypeNode = NamedInputTypeNode | WrappingInputTypeNode;
+export type OutputTypeNode = NamedOutputTypeNode | WrappingOutputTypeNode;
+export type TypeNode = NamedTypeNode | WrappingTypeNode;
+
+// Wrapping Types
+
+export interface WrappingNode<T extends GraphQLTypeNode | ReferenceNode> extends GraphQLTypeNode, NullableNode {
+  wrapped:T;
+}
+
+export interface ListNode<T extends GraphQLTypeNode & NullableNode> extends WrappingNode<T | ListNode<T>> {
+  kind:GQLTypeKind.LIST_TYPE;
+}
+
+export type ListInputTypeNode = ListNode<NamedInputTypeNode>;
+export type ListOutputTypeNode = ListNode<NamedOutputTypeNode>;
+export type ListTypeNode = ListNode<NamedTypeNode>;
+
+// Named Types
+
+export type ReferenceTypeNode = ObjectTypeNode | InterfaceTypeNode | EnumTypeNode | InputObjectTypeNode | UnionTypeNode
+| CustomScalarTypeNode;
+
+export const DefinitionFromType = new Map<GQLDefinitionKind, ReferenceTypeNode['kind']>([
+  [GQLDefinitionKind.OBJECT_DEFINITION, GQLTypeKind.OBJECT_TYPE],
+  [GQLDefinitionKind.INTERFACE_DEFINITION, GQLTypeKind.INTERFACE_TYPE],
+  [GQLDefinitionKind.ENUM_DEFINITION, GQLTypeKind.ENUM_TYPE],
+  [GQLDefinitionKind.INPUT_OBJECT_DEFINITION, GQLTypeKind.INPUT_OBJECT_TYPE],
+  [GQLDefinitionKind.UNION_DEFINITION, GQLTypeKind.UNION_TYPE],
+  [GQLDefinitionKind.SCALAR_DEFINITION, GQLTypeKind.CUSTOM_SCALAR_TYPE],
+]);
+
+export interface ObjectTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.OBJECT_TYPE;
+}
+
+export interface InterfaceTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.INTERFACE_TYPE;
+}
+
+export interface EnumTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.ENUM_TYPE;
+}
+
+export interface InputObjectTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.INPUT_OBJECT_TYPE;
+}
+
+export interface UnionTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.UNION_TYPE;
+}
+
+// Scalar Types
+
+export interface CustomScalarTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.CUSTOM_SCALAR_TYPE;
+}
+
+export interface StringTypeNode extends GraphQLTypeNode, NullableNode {
+  kind:GQLTypeKind.STRING_TYPE;
+}
+
+export interface IntTypeNode extends GraphQLTypeNode, NullableNode {
+  kind:GQLTypeKind.INT_TYPE;
+}
+
+export interface FloatTypeNode extends GraphQLTypeNode, NullableNode {
+  kind:GQLTypeKind.FLOAT_TYPE;
+}
+
+export type NumberTypeNode = IntTypeNode | FloatTypeNode;
+
+export interface BooleanTypeNode extends GraphQLTypeNode, NullableNode {
+  kind:GQLTypeKind.BOOLEAN_TYPE;
+}
+
+export interface IDTypeNode extends GraphQLTypeNode, NullableNode {
+  kind:GQLTypeKind.ID_TYPE;
+}
+
+export type BuiltInScalarTypeNode = StringTypeNode | NumberTypeNode | BooleanTypeNode | IDTypeNode;
+export type ScalarTypeNode = CustomScalarTypeNode | BuiltInScalarTypeNode;
+
+// Currently we have no distinction between values: they're string-represented
+export interface ValueNode extends GraphQLTypeNode {
+  kind:GQLTypeKind.VALUE;
   value:string;
-}
-
-export interface StringNode {
-  type:NodeType.STRING;
-}
-
-export interface NumberNode {
-  type:NodeType.NUMBER;
-}
-
-export interface BooleanNode {
-  type:NodeType.BOOLEAN;
-}
-
-export interface AnyNode {
-  type:NodeType.ANY;
-}
-
-export interface NullNode {
-  type:NodeType.NULL;
-}
-
-export interface UndefinedNode {
-  type:NodeType.UNDEFINED;
-}
-
-export interface NotNullNode {
-  type:NodeType.NOT_NULL;
-  node:Node;
-}
-
-export interface NotNullWrapper<T extends ComplexNode> {
-  type:NodeType.NOT_NULL;
-  node:T;
-}
-
-export interface ValueNode {
-  type:NodeType.VALUE;
-  value:string;
-}
-
-export type Node =
-  InterfaceNode |
-  MethodNode |
-  ArrayNode |
-  ReferenceNode |
-  PropertyNode |
-  AliasNode |
-  EnumNode |
-  UnionNode |
-  LiteralObjectNode |
-  StringLiteralNode |
-  StringNode |
-  NumberNode |
-  BooleanNode |
-  NullNode |
-  UndefinedNode |
-  NotNullNode |
-  AnyNode |
-  ValueNode;
-
-export type ScalarNode = StringNode | NumberNode | BooleanNode;
-
-export type FieldNode = MethodNode | PropertyNode;
-
-export type TypeMap = {[key:string]:Node};
-
-export interface Parser<T> {
-  result:T;
-}
-
-export interface MethodParamsParser extends Parser<MethodParamsNode> {
-
 }

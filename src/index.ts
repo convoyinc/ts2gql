@@ -1,13 +1,13 @@
+import * as doctrine from 'doctrine';
 import * as _ from 'lodash';
 import * as typescript from 'typescript';
 import * as path from 'path';
 
-import * as types from './types';
 import * as util from './util';
-import Collector from './Collector';
+import { Collector, CollectorType } from './Collector';
 import Emitter from './Emitter';
 
-export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMap {
+export function load(schemaRootPath:string, rootNodeNames:string[]):CollectorType {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
@@ -20,13 +20,19 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
       interfaces[interfaceNode.name.text] = interfaceNode;
 
       const documentation = util.documentationForNode(interfaceNode, schemaRoot.text);
-      if (documentation && _.find(documentation.tags, {title: 'graphql', description: 'schema'})) {
+      const isSchemaRoot = documentation && _.find(documentation.tags, (tag:doctrine.Tag) => {
+        return tag.title === 'graphql' && /^[Ss]chema$/.test(tag.description);
+      });
+      if (isSchemaRoot) {
         rootNodeNames.push(interfaceNode.name.text);
       }
     }
   });
 
   rootNodeNames = _.uniq(rootNodeNames);
+  if (rootNodeNames.length === 0) {
+    throw new Error(`GraphQL Schema declaration not found`);
+  }
 
   const collector = new Collector(program);
   for (const name of rootNodeNames) {
@@ -40,13 +46,15 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
   _.each(interfaces, (node, name) => {
     const documentation = util.documentationForNode(node);
     if (!documentation) return;
-    const override = _.find(documentation.tags, t => t.title === 'graphql' && t.description.startsWith('override'));
+    const override = _.find(documentation.tags, (tag:doctrine.Tag) => {
+      return tag.title === 'graphql' && /^[Oo]verride$/.test(tag.description);
+    });
     if (!override) return;
     const overrideName = override.description.split(' ')[1] || name!;
     collector.mergeOverrides(node, overrideName);
   });
 
-  return collector.types;
+  return collector;
 }
 
 export function emit(
