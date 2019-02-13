@@ -560,7 +560,11 @@ export class Collector implements CollectorType {
         throw new Error(`Cannot create alias for GraphQL Wrapping Types.`);
       }
       if (util.isBuiltInScalar(nonNullMember)) {
-        this._collectIntOrIDKind(nonNullMember, doc);
+        const intOrID = this._collectIntOrIDKind(nonNullMember, doc);
+        if (intOrID) {
+          throw new Error(`Can not define ${name} as ${intOrID}.`
+          + ` GraphQL BuiltIn Primitives can not be nullable by default.`);
+        }
         return {
           name,
           nullable,
@@ -649,15 +653,10 @@ export class Collector implements CollectorType {
   }
 
   _concrete(node:types.InterfaceTypeDefinitionNode):types.ObjectTypeDefinitionNode {
-    return {
-      documentation: node.documentation,
-      originalLine: node.originalLine,
-      originalColumn: node.originalColumn,
-      kind: types.GQLDefinitionKind.OBJECT_DEFINITION,
-      name: node.name,
-      implements: node.implements,
-      fields: node.fields,
-    };
+    const concrete = {} as types.ObjectTypeDefinitionNode;
+    Object.assign(concrete, node);
+    concrete.kind = types.GQLDefinitionKind.OBJECT_DEFINITION;
+    return concrete;
   }
 
   _directiveFromDocTag(jsDocTag:doctrine.Tag):types.DirectiveDefinitionNode {
