@@ -11,13 +11,12 @@ export class MethodParamsParser  {
     constructor() {
         this.tokenizer = new MethodParamsTokenizer();
         this.tokens = [];
-        this.args = {} as Map<string, types.DirectiveInputValueNode>;
+        this.args = new Map<string, types.DirectiveInputValueNode>();
     }
 
     parse(stringToParse:string):types.DirectiveInputValueNode[] {
         this.tokens = this.tokenizer.tokenize(stringToParse);
-        this._parseArgs();
-        return Array.from(this.args.values());
+        return Array.from(this._parseArgs().values());
     }
 
     _parseArgs():Map<string, types.DirectiveInputValueNode> {
@@ -50,17 +49,17 @@ export class MethodParamsParser  {
             \n${valueToken.type}: ${valueToken.value}`);
         }
 
-        if (this.args[nameToken.value]) {
-            throw new ParsingFailedException(`Repeated param name ${nameToken.value}.`);
+        if (this.args.get(nameToken.value)) {
+            throw new ParsingFailedException(`Repeated param name '${nameToken.value}'.`);
         }
-        this.args[nameToken.value] = {
+        this.args.set(nameToken.value, {
             name: nameToken.value,
             kind: types.GQLDefinitionKind.DIRECTIVE_INPUT_VALUE_DEFINITION,
             value: {
                 kind: types.GQLTypeKind.VALUE,
                 value: valueToken.value,
             },
-        };
+        });
 
         return start + 3;
     }
