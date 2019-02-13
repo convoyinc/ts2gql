@@ -112,7 +112,7 @@ export class MethodParamsTokenizer {
         const value = this.raw.slice(idx, valueEnd);
         if (!this._checkPrimitiveValue(value)) {
             const msg = value.length === 0 ? `Missing value`
-            : `Invalid value '${value}'. Expected number, boolean, string literal or name'`;
+            : `Invalid value '${value}'. Expected number, boolean, string literal or name`;
             throw new MethodParamsTokenizerException(msg);
         }
         this.tokens.push(new MethodParamsToken(TokenType.PARAMETER_VALUE, value));
