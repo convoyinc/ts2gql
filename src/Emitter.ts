@@ -66,8 +66,11 @@ export default class Emitter {
         break;
       case types.GQLDefinitionKind.DEFINITION_ALIAS:
         const aliased = this.typeMap.get(node.target)!;
+        if (aliased.name === name) {
+          throw new Error(`Can not emit alias with same name of original type.`);
+        }
         content = this._emitTopLevelNode(aliased, name);
-        return;
+        break;
       default:
         throw new Error(`Unsupported top level node '${name}'.`);
     }
