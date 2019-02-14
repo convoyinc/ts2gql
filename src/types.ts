@@ -8,6 +8,7 @@ export type SymbolName = string;
 
 export interface TranspiledNode {
   documentation?:doctrine.ParseResult;
+  description?:string;
   originalLine?:number;
   originalColumn?:number;
 }

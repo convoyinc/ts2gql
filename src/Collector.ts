@@ -258,6 +258,7 @@ export class Collector implements CollectorType {
 
     const collected = {
       documentation,
+      description: this._collectDescription(documentation),
       name,
       implements: inherits,
       fields: mergedFields,
@@ -334,6 +335,7 @@ export class Collector implements CollectorType {
 
     return {
       documentation,
+      description: this._collectDescription(documentation),
       name,
       kind: types.GQLDefinitionKind.FIELD_DEFINITION,
       category,
@@ -485,6 +487,8 @@ export class Collector implements CollectorType {
         const aliasType = this._walkType(node.type);
         if (util.isBuiltInScalar(aliasType)) {
           definition = {
+            documentation: doc,
+            description: this._collectDescription(doc),
             name,
             nullable: aliasType.nullable,
             kind: types.GQLDefinitionKind.SCALAR_DEFINITION,
@@ -492,6 +496,8 @@ export class Collector implements CollectorType {
           definition.builtIn = this._collectIntOrIDKind(aliasType, doc);
         } else if (util.isReferenceType(aliasType)) {
           definition = {
+            documentation: doc,
+            description: this._collectDescription(doc),
             name,
             kind: types.GQLDefinitionKind.DEFINITION_ALIAS,
             nullable: aliasType.nullable,
@@ -544,6 +550,7 @@ export class Collector implements CollectorType {
   _collectUnionDefinition(node:typescript.UnionTypeNode, name:types.SymbolName,
   doc?:doctrine.ParseResult):types.UnionTypeDefinitionNode | types.ScalarTypeDefinitionNode
   | types.DefinitionAliasNode {
+    const description = this._collectDescription(doc);
     const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
     const nullable = unionMembers.length < node.types.length || unionMembers.every(member => member.nullable);
 
@@ -566,6 +573,8 @@ export class Collector implements CollectorType {
         };
       }
       return {
+        documentation: doc,
+        description,
         name,
         nullable,
         kind: types.GQLDefinitionKind.DEFINITION_ALIAS,
@@ -582,6 +591,8 @@ export class Collector implements CollectorType {
    });
 
     return {
+      documentation: doc,
+      description,
       kind: types.GQLDefinitionKind.UNION_DEFINITION,
       name,
       nullable,
@@ -597,12 +608,24 @@ export class Collector implements CollectorType {
     if (values.length === 0) {
       throw new excpt.EnumError(node, `GraphQL Enums must have at least one or more unique enum values.`);
     }
-
+    const documentation = util.documentationForNode(node);
     return this._addTypeDefinition({
+      documentation,
+      description: this._collectDescription(documentation),
       name: node.name.getText(),
       kind: types.GQLDefinitionKind.ENUM_DEFINITION,
       values,
     });
+  }
+
+  _collectDescription(doc:doctrine.ParseResult|undefined):string|undefined {
+    const tagPattern = /^[Dd]escription\s+((?:.|\s)+)$/;
+    const description = util.extractTagDescription(doc, tagPattern);
+    if (!description) {
+      return undefined;
+    }
+    const extracted = description.match(tagPattern);
+    return extracted ? extracted[1] : '';
   }
 
   // Utility

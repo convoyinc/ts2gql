@@ -29,6 +29,7 @@ export default class Emitter {
   }
 
   emitTopLevelNode(node:types.TypeDefinitionNode, name:types.SymbolName, stream:NodeJS.WritableStream):string {
+    const description = this._emitDescription(node.description);
     let content;
     switch (node.kind) {
       case types.GQLDefinitionKind.OBJECT_DEFINITION:
@@ -56,7 +57,7 @@ export default class Emitter {
       default:
         throw new Error(`Unsupported top level node '${name}'.`);
     }
-    return content;
+    return description + content;
   }
 
   emitSchema() {
@@ -68,6 +69,10 @@ export default class Emitter {
   }
 
   // Specialized emitters
+
+  _emitDescription(desc:string|undefined):string {
+    return desc ? `"""\n${desc}\n"""\n` : '';
+  }
 
   _emitObject(node:types.ObjectTypeDefinitionNode, name:string):string {
     let emittedImplements = this._emitImplementations(node);
@@ -97,16 +102,18 @@ export default class Emitter {
 
   _emitFields(fields:types.FieldDefinitionNode[]) {
     const emitted = fields.map(field => this._emitField(field));
-    return this._indent(emitted);
+    return emitted.join('\n');
   }
 
   _emitField(field:types.FieldDefinitionNode) {
+    const description = this._emitDescription(field.description);
     const argumentList = this._emitArguments(field.arguments);
     let directives = this._emitFieldDirectives(field.directives);
     if (directives) {
       directives = ' ' + directives;
     }
-    return `${this._name(field.name)}${argumentList}: ${this._emitExpression(field.type)}${directives}`;
+    return this._indent(description
+    + `${this._name(field.name)}${argumentList}: ${this._emitExpression(field.type)}${directives}`);
   }
 
   _emitArguments(args?:(types.InputValueDefinitionNode | types.DirectiveInputValueNode)[]):string {
