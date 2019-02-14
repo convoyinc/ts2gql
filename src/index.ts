@@ -11,6 +11,9 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):CollectorTyp
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
+  if (!schemaRoot) {
+    throw new Error(`Could not Parse TypeScript AST of file ${schemaRootPath}`);
+  }
 
   const interfaces:{[key:string]:typescript.InterfaceDeclaration} = {};
   typescript.forEachChild(schemaRoot, (node) => {
