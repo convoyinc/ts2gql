@@ -22,9 +22,9 @@ export function hasDocTag(node:types.TranspiledNode, regex:RegExp):boolean {
 export function extractTagDescription(doc:doctrine.ParseResult|undefined, regex:RegExp):string|null {
   if (!doc) return null;
   const found = doc.tags.find((tag) => {
-    return tag.title === 'graphql' && regex.test(tag.description);
+    return tag.title === 'graphql' && regex.test(String(tag.description));
   });
-  return found ? found.description : null;
+  return found ? String(found.description) : null;
 }
 
 export function isReferenceType(node:types.TypeNode):node is types.ReferenceTypeNode {

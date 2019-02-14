@@ -8,6 +8,7 @@ export type SymbolName = string;
 
 export interface TranspiledNode {
   documentation?:doctrine.ParseResult;
+  description?:string;
   originalLine?:number;
   originalColumn?:number;
 }
@@ -22,6 +23,7 @@ export enum GQLDefinitionKind {
   SCALAR_DEFINITION = 'scalar definition',
   FIELD_DEFINITION = 'field definition',
   INPUT_VALUE_DEFINITION = 'input value definition',
+  ENUM_FIELD_DEFINITION = 'enum field definition',
   DEFINITION_ALIAS = 'definition alias',
   // Directives
   DIRECTIVE = 'directive',
@@ -99,7 +101,7 @@ export interface InputObjectTypeDefinition extends GraphQLDefinitionNode {
 
 export interface EnumTypeDefinitionNode extends GraphQLDefinitionNode {
   kind:GQLDefinitionKind.ENUM_DEFINITION;
-  values:string[];
+  fields:EnumFieldDefinitionNode[];
 }
 
 export interface UnionTypeDefinitionNode extends GraphQLDefinitionNode, NullableNode {
@@ -156,6 +158,10 @@ export interface DirectiveDefinitionNode extends GraphQLDefinitionNode {
 export interface DirectiveInputValueNode extends GraphQLDefinitionNode {
   kind:GQLDefinitionKind.DIRECTIVE_INPUT_VALUE_DEFINITION;
   value:ValueNode;
+}
+
+export interface EnumFieldDefinitionNode extends GraphQLDefinitionNode {
+  kind:GQLDefinitionKind.ENUM_FIELD_DEFINITION;
 }
 
 //
