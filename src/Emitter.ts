@@ -11,7 +11,7 @@ export default class Emitter {
   private emissionMap:Map<types.SymbolName, string> = new Map();
   private emissionQueue:types.SymbolName[] = [];
   constructor(collector:CollectorType) {
-    this.typeMap = collector.types;
+    this.typeMap = collector.resolved;
     if (!collector.root) {
       throw new Error(`Empty schema definition.`);
     }
