@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-source ./scripts/include/node.sh
-
 FILES=("${@}")
 if [[ "${#FILES[@]}" = "0" ]]; then
   FILES+=($(find scripts src test ! -name "*.d.ts" -and -name "*.ts" -or -name "*.tsx"))

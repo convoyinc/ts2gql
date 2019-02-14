@@ -2,7 +2,6 @@
 set -e
 
 source ./scripts/include/shell.sh
-source ./scripts/include/node.sh
 
 FILES=("${OPTIONS_ARGS[@]}")
 if [[ "${#FILES[@]}" == "0" ]]; then

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-source ./scripts/include/node.sh
-
 # Kill all child processes on exit.
 trap 'trap - SIGTERM && kill 0' SIGINT SIGTERM EXIT
 
