@@ -602,19 +602,29 @@ export class Collector implements CollectorType {
 
   _collectEnumDeclaration(node:typescript.EnumDeclaration):types.EnumTypeDefinitionNode {
     // If the user provides an initializer, ignore and use the initializer itself.
-      // The initializer regards server functioning and should not interfere in protocol description.
-    const values = _.uniq(node.members.map(m => _.trim(m.name.getText(), "'\"")).filter(name => name.length > 0));
-
-    if (values.length === 0) {
+    // The initializer regards server functioning and should not interfere in protocol description.
+    const fields = _.uniqBy(node.members.map<types.EnumFieldDefinitionNode>((member) => {
+      const fieldDoc = util.documentationForNode(member);
+      const fieldDesc = this._collectDescription(fieldDoc);
+      const value = _.trim(member.name.getText(), "'\"");
+      return {
+        documentation: fieldDoc,
+        description: fieldDesc,
+        kind:types.GQLDefinitionKind.ENUM_FIELD_DEFINITION,
+        name: value,
+      };
+    }).filter(field => field.name), field => field.name);
+    if (fields.length === 0) {
       throw new excpt.EnumError(node, `GraphQL Enums must have at least one or more unique enum values.`);
     }
     const documentation = util.documentationForNode(node);
+    const description = this._collectDescription(documentation);
     return this._addTypeDefinition({
       documentation,
-      description: this._collectDescription(documentation),
+      description,
       name: node.name.getText(),
       kind: types.GQLDefinitionKind.ENUM_DEFINITION,
-      values,
+      fields,
     });
   }
 

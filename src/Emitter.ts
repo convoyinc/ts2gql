@@ -136,7 +136,11 @@ export default class Emitter {
   }
 
   _emitEnum(node:types.EnumTypeDefinitionNode, name:types.SymbolName):string {
-    return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
+    return `enum ${this._name(name)} {\n${this._emitEnumFields(node.fields)}\n}`;
+  }
+
+  _emitEnumFields(fields:types.EnumFieldDefinitionNode[]):string {
+    return fields.map(field => this._indent(this._emitDescription(field.description) + field.name)).join('\n');
   }
 
   _emitUnion(node:types.UnionTypeDefinitionNode, name:types.SymbolName):string {
