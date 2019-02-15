@@ -31,7 +31,6 @@ export interface PostContent {
 
 export interface Post extends PostContent {
   id: Id;
-  postedAt: Date;
   author: User;
 }
 
@@ -54,9 +53,9 @@ export interface PostQuery extends IdQuery {
 
 // Methods are transformed into parameteried edges:
 export interface QueryRoot {
-  users(args: {id: Id}): User[]
-  posts(args: {id: Id, authorId: Id, categoryId: Id}): Post[]
-  categories(args: {id: Id}): Category[]
+  users(id: Id): User[]
+  posts(id: Id, authorId: Id, categoryId: Id): Post[]
+  categories(id: Id): Category[]
 }
 
 // Input types can be composed with inheritence. This renders to the same graphql as QueryRoot above.
@@ -67,7 +66,7 @@ export interface QueryRootUsingTypes {
 }
 
 export interface MutationRoot {
-  login(args: {username: string, password: string}): QueryRoot;
+  login(username: string, password: string): QueryRoot;
 }
 
 // Don't forget to declare your schema and the root types!
@@ -91,56 +90,54 @@ export interface EmailRecipients {
 /** @graphql override Category */
 export interface CategoryOverrides {
   // for example, we may want to be able to filter or paginate posts:
-  posts(args: {authorId:Id}): Post[]
+  posts(authorId:Id): Post[]
 }
 ```
 
 ```
 > ts2gql input.ts
 
-scalar Date
-
 scalar Url
 
 type User {
-  id: ID
-  name: String
-  photo: Url
+  id: ID!
+  name: String!
+  photo: Url!
 }
 
 interface PostContent {
-  body: String
-  title: String
+  body: String!
+  title: String!
 }
 
 type Post {
-  author: User
-  body: String
-  id: ID
-  postedAt: Date
-  title: String
+  author: User!
+  body: String!
+  id: ID!
+  postedAt: Date!
+  title: String!
 }
 
 type Category {
-  id: ID
-  name: String
+  id: ID!
+  name: String!
   posts(authorId: ID): [Post]
 }
 
 type QueryRoot {
-  categories(id: ID): [Category]
-  posts(id: ID, authorId: ID, categoryId: ID): [Post]
-  users(id: ID): [User]
+  categories(id: ID!): [Category!]!
+  posts(id: ID!, authorId: ID!, categoryId: ID!): [Post!]!
+  users(id: ID!): [User]
 }
 
 type QueryRootUsingTypes {
-  categories(id: ID): [Category]
-  posts(id: ID, authorId: ID, categoryId: ID): [Post]
-  users(id: ID): [User]
+  categories(id: ID!): [Category!]!
+  posts(id: ID!, authorId: ID, categoryId: ID!): [Post!]!
+  users(id: ID!): [User!]!
 }
 
 type MutationRoot {
-  login(username: String, password: String): QueryRoot
+  login(username: String!, password: String!): QueryRoot!
 }
 
 schema {
