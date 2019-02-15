@@ -34,9 +34,10 @@ export function isReferenceType(node:types.TypeNode):node is types.ReferenceType
 }
 
 export function isNullableDefinition(node:types.TypeDefinitionNode):node is types.UnionTypeDefinitionNode |
-types.ScalarTypeDefinitionNode  | types.DefinitionAliasNode {
+types.EnumTypeDefinitionNode | types.ScalarTypeDefinitionNode  | types.DefinitionAliasNode {
   return node.kind === types.GQLDefinitionKind.UNION_DEFINITION
-  || node.kind === types.GQLDefinitionKind.SCALAR_DEFINITION || node.kind === types.GQLDefinitionKind.DEFINITION_ALIAS;
+  || node.kind === types.GQLDefinitionKind.ENUM_DEFINITION || node.kind === types.GQLDefinitionKind.SCALAR_DEFINITION
+  || node.kind === types.GQLDefinitionKind.DEFINITION_ALIAS;
 }
 
 export function isOutputType(node:types.TypeNode):node is types.OutputTypeNode {

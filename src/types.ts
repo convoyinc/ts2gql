@@ -99,7 +99,7 @@ export interface InputObjectTypeDefinition extends GraphQLDefinitionNode {
   implements:ReferenceNode[];
 }
 
-export interface EnumTypeDefinitionNode extends GraphQLDefinitionNode {
+export interface EnumTypeDefinitionNode extends GraphQLDefinitionNode, NullableNode {
   kind:GQLDefinitionKind.ENUM_DEFINITION;
   fields:EnumFieldDefinitionNode[];
 }

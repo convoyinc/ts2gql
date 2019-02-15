@@ -72,7 +72,7 @@ export default class Emitter {
         throw new Error(`Unsupported top level node '${name}'.`);
     }
     this.emissionQueue.push(name);
-    this.emissionMap.set(name, content);
+    this.emissionMap.set(name, description + content);
   }
 
   _emitSchema() {
