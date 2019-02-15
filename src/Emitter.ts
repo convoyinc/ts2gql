@@ -21,31 +21,26 @@ export default class Emitter {
   emitAll(stream:NodeJS.WritableStream) {
     stream.write('\n');
     const query = this.typeMap.get(this.root.query);
-    let mutation;
-    if (this.root.mutation) {
-      mutation = this.typeMap.get(this.root.mutation);
-    }
+    const mutation = this.root.mutation ? this.typeMap.get(this.root.mutation) : undefined;
 
     if (query) {
       const queryRootName = this._name(this.root.query);
-      this.emitTopLevelNode(query, queryRootName);
+      this._emitTopLevelNode(query, queryRootName);
     }
 
     if (mutation) {
       const mutationRootName = this._name(this.root.mutation!);
-      this.emitTopLevelNode(mutation, mutationRootName);
+      this._emitTopLevelNode(mutation, mutationRootName);
     }
-    console.log(this.emissionQueue)
     this.emissionQueue.forEach(emissionElem => stream.write(`${this.emissionMap.get(emissionElem)!}\n`));
-    stream.write(`${this.emitSchema()}\n`);
+    stream.write(`${this._emitSchema()}\n`);
   }
 
-  emitTopLevelNode(node:types.TypeDefinitionNode, name:types.SymbolName) {
+  _emitTopLevelNode(node:types.TypeDefinitionNode, name:types.SymbolName) {
     if (this.emissionMap.has(name)) {
       return;
     }
     if (node.kind !== types.GQLDefinitionKind.DEFINITION_ALIAS) {
-      this.emissionQueue.push(name);
       this.emissionMap.set(name, '');
     }
     const description = this._emitDescription(node.description);
@@ -71,15 +66,16 @@ export default class Emitter {
         break;
       case types.GQLDefinitionKind.DEFINITION_ALIAS:
         const aliased = this.typeMap.get(node.target)!;
-        content = this.emitTopLevelNode(aliased, name);
+        content = this._emitTopLevelNode(aliased, name);
         return;
       default:
         throw new Error(`Unsupported top level node '${name}'.`);
     }
-    this.emissionMap.set(name, description + content);
+    this.emissionQueue.push(name);
+    this.emissionMap.set(name, content);
   }
 
-  emitSchema() {
+  _emitSchema() {
     const properties = `query: ${this._name(this.root.query)}`
     + (this.root.mutation ? `\nmutation: ${this._name(this.root.mutation)}` : '');
     return `schema {\n${this._indent(properties)}\n}`;
@@ -105,7 +101,7 @@ export default class Emitter {
       if (!referenced) {
         return false;
       }
-      this.emitTopLevelNode(referenced, this._name(reference.target));
+      this._emitTopLevelNode(referenced, this._name(reference.target));
       return referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION;
     }).map(reference => this._name(reference.target));
     if (implemented.length === 0) {
@@ -178,7 +174,7 @@ export default class Emitter {
     let emitted = '';
     if (util.isReferenceType(node)) {
       const referenceName = this._name(node.target);
-      this.emitTopLevelNode(this.typeMap.get(referenceName)!, referenceName);
+      this._emitTopLevelNode(this.typeMap.get(referenceName)!, referenceName);
       emitted = referenceName;
     } else if (node.kind === types.GQLTypeKind.LIST_TYPE) {
       emitted = `[${this._emitExpression(node.wrapped)}]`;

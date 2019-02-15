@@ -229,7 +229,7 @@ export class Collector implements CollectorType {
 
     const inheritedFields = _.flatten(inherits.map((inherited:types.ReferenceNode) => {
       const inheritedName = inherited.target;
-      const inheritedDefinition = this.types.get(inheritedName);
+      const inheritedDefinition = this._unwrapAlias(this.types.get(inheritedName)!);
       if (!inheritedDefinition) {
         throw new excpt.InterfaceError(node, `Found circular reference in inherited interface '${inheritedName}'.`);
       } else if (!inheritedDefinitionChecker(inheritedDefinition)) {
@@ -241,7 +241,6 @@ export class Collector implements CollectorType {
       }
       return inheritedDefinition.fields as types.FieldDefinitionNode[];
     }));
-
     const inheritedPropNames = inheritedFields.map(field => field.name);
     if (_.uniq(inheritedPropNames).length !== inheritedPropNames.length) {
       throw new excpt.InterfaceError(node, `There are conflicting properties between inherited TypeScript interfaces.`);
@@ -400,16 +399,8 @@ export class Collector implements CollectorType {
 
     let kind:types.ReferenceTypeNode['kind'] | types.GQLTypeKind.INT_TYPE | types.GQLTypeKind.ID_TYPE | undefined;
     if (referenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
-      let aliasedRef:types.DefinitionAliasNode|types.TypeDefinitionNode = referenced;
-      while (aliasedRef.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
-        const aliasedTarget = this.types.get(aliasedRef.target);
-        if (!aliasedTarget) {
-          throw new Error(`Broken alias chain. Could not find declaration for aliased symbol ${aliasedRef.target}`);
-        }
-        aliasedRef = aliasedTarget;
-        kind = types.DefinitionFromType.get(aliasedRef.kind);
-      }
-      referenced = aliasedRef;
+      referenced = this._unwrapAlias(referenced);
+      kind = types.DefinitionFromType.get(referenced.kind);
     } else {
       kind = types.DefinitionFromType.get(referenced.kind);
     }
@@ -708,5 +699,17 @@ export class Collector implements CollectorType {
     return nodes.filter((node) => {
       return node.kind !== SyntaxKind.NullKeyword && node.kind !== SyntaxKind.UndefinedKeyword;
     });
+  }
+
+  _unwrapAlias(referenced:types.TypeDefinitionNode):types.TypeDefinitionNode {
+    let aliasedRef:types.DefinitionAliasNode|types.TypeDefinitionNode = referenced;
+      while (aliasedRef.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
+        const aliasedTarget = this.types.get(aliasedRef.target);
+        if (!aliasedTarget) {
+          throw new Error(`Broken alias chain. Could not find declaration for aliased symbol ${aliasedRef.target}`);
+        }
+        aliasedRef = aliasedTarget;
+      }
+      return aliasedRef;
   }
 }
