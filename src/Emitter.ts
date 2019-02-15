@@ -32,7 +32,7 @@ export default class Emitter {
       const mutationRootName = this._name(this.root.mutation!);
       this._emitTopLevelNode(mutation, mutationRootName);
     }
-    this.emissionQueue.forEach(emissionElem => stream.write(`${this.emissionMap.get(emissionElem)!}\n`));
+    this.emissionQueue.forEach(emissionElem => stream.write(`${this.emissionMap.get(emissionElem)}\n`));
     stream.write(`${this._emitSchema()}\n`);
   }
 
@@ -70,7 +70,7 @@ export default class Emitter {
           throw new Error(`Can not emit alias with same name of original type.`);
         }
         content = this._emitTopLevelNode(aliased, name);
-        break;
+        return;
       default:
         throw new Error(`Unsupported top level node '${name}'.`);
     }
