@@ -8,6 +8,8 @@ import { CollectorType } from './Collector';
 export default class Emitter {
   private typeMap:types.TypeDefinitionMap;
   private root:types.SchemaDefinitionNode;
+  private emissionMap:Map<types.SymbolName, string> = new Map();
+  private emissionQueue:types.SymbolName[] = [];
   constructor(collector:CollectorType) {
     this.typeMap = collector.types;
     if (!collector.root) {
@@ -18,17 +20,29 @@ export default class Emitter {
 
   emitAll(stream:NodeJS.WritableStream) {
     stream.write('\n');
-    this.typeMap.forEach((node, name) => {
-      const content = this.emitTopLevelNode(node, name, stream);
-      if (content) {
-        stream.write(`${content}\n\n`);
-      }
-    });
+    const query = this.typeMap.get(this.root.query);
+    const mutation = this.root.mutation ? this.typeMap.get(this.root.mutation) : undefined;
 
-    stream.write(`${this.emitSchema()}\n`);
+    if (query) {
+      const queryRootName = this._name(this.root.query);
+      this._emitTopLevelNode(query, queryRootName);
+    }
+
+    if (mutation) {
+      const mutationRootName = this._name(this.root.mutation!);
+      this._emitTopLevelNode(mutation, mutationRootName);
+    }
+    this.emissionQueue.forEach(emissionElem => stream.write(`${this.emissionMap.get(emissionElem)!}\n`));
+    stream.write(`${this._emitSchema()}\n`);
   }
 
-  emitTopLevelNode(node:types.TypeDefinitionNode, name:types.SymbolName, stream:NodeJS.WritableStream):string {
+  _emitTopLevelNode(node:types.TypeDefinitionNode, name:types.SymbolName) {
+    if (this.emissionMap.has(name)) {
+      return;
+    }
+    if (node.kind !== types.GQLDefinitionKind.DEFINITION_ALIAS) {
+      this.emissionMap.set(name, '');
+    }
     const description = this._emitDescription(node.description);
     let content;
     switch (node.kind) {
@@ -52,19 +66,18 @@ export default class Emitter {
         break;
       case types.GQLDefinitionKind.DEFINITION_ALIAS:
         const aliased = this.typeMap.get(node.target)!;
-        content = this.emitTopLevelNode(aliased, name, stream);
-        break;
+        content = this._emitTopLevelNode(aliased, name);
+        return;
       default:
         throw new Error(`Unsupported top level node '${name}'.`);
     }
-    return description + content;
+    this.emissionQueue.push(name);
+    this.emissionMap.set(name, content);
   }
 
-  emitSchema() {
-    const properties = [`query: ${this.root.query}`];
-    if (this.root.mutation) {
-      properties.push(`mutation: ${this.root.mutation}`);
-    }
+  _emitSchema() {
+    const properties = `query: ${this._name(this.root.query)}`
+    + (this.root.mutation ? `\nmutation: ${this._name(this.root.mutation)}` : '');
     return `schema {\n${this._indent(properties)}\n}`;
   }
 
@@ -88,6 +101,7 @@ export default class Emitter {
       if (!referenced) {
         return false;
       }
+      this._emitTopLevelNode(referenced, this._name(reference.target));
       return referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION;
     }).map(reference => this._name(reference.target));
     if (implemented.length === 0) {
@@ -144,16 +158,12 @@ export default class Emitter {
   }
 
   _emitUnion(node:types.UnionTypeDefinitionNode, name:types.SymbolName):string {
-    const nodeNames = node.members.map(member => member.target);
+    const nodeNames = node.members.map(member => this._emitExpression(member));
     return `union ${this._name(name)} = ${nodeNames.join(' | ')}`;
   }
 
   _emitScalarDefinition(node:types.ScalarTypeDefinitionNode, name:types.SymbolName):string {
     return node.builtIn ? '' : `scalar ${this._name(name)}`;
-  }
-
-  _emitReference(node:types.ReferenceTypeNode):string {
-    return this._name(node.target);
   }
 
   _emitExpression = (node:types.TypeNode|types.ValueNode):string => {
@@ -163,7 +173,9 @@ export default class Emitter {
     const required = node.nullable ? '' : '!';
     let emitted = '';
     if (util.isReferenceType(node)) {
-      emitted = `${this._name(node.target)}`;
+      const referenceName = this._name(node.target);
+      this._emitTopLevelNode(this.typeMap.get(referenceName)!, referenceName);
+      emitted = referenceName;
     } else if (node.kind === types.GQLTypeKind.LIST_TYPE) {
       emitted = `[${this._emitExpression(node.wrapped)}]`;
     } else if (node.kind === types.GQLTypeKind.STRING_TYPE) {
