@@ -40,6 +40,7 @@ export enum GQLTypeKind {
   ENUM_TYPE = 'enum type',
   INPUT_OBJECT_TYPE = 'input object type',
   UNION_TYPE = 'union type',
+  CIRCULAR_TYPE = 'circular type',
   CUSTOM_SCALAR_TYPE = 'custom scalar',
   STRING_TYPE = 'string',
   INT_TYPE = 'int',
@@ -181,7 +182,7 @@ export enum GQLTypeCategory {
 
 export type NamedInputTypeNode = ScalarTypeNode | EnumTypeNode | InputObjectTypeNode;
 export type NamedOutputTypeNode = ScalarTypeNode | ObjectTypeNode | InterfaceTypeNode | UnionTypeNode | EnumTypeNode;
-export type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode;
+export type NamedTypeNode = NamedInputTypeNode | NamedOutputTypeNode | CircularReferenceTypeNode;
 
 export type WrappingInputTypeNode = ListInputTypeNode;
 export type WrappingOutputTypeNode = ListOutputTypeNode;
@@ -208,7 +209,7 @@ export type ListTypeNode = ListNode<NamedTypeNode>;
 // Named Types
 
 export type ReferenceTypeNode = ObjectTypeNode | InterfaceTypeNode | EnumTypeNode | InputObjectTypeNode | UnionTypeNode
-| CustomScalarTypeNode;
+| CustomScalarTypeNode | CircularReferenceTypeNode;
 
 export const DefinitionFromType = new Map<GQLDefinitionKind, ReferenceTypeNode['kind']>([
   [GQLDefinitionKind.OBJECT_DEFINITION, GQLTypeKind.OBJECT_TYPE],
@@ -237,6 +238,12 @@ export interface InputObjectTypeNode extends GraphQLTypeNode, ReferenceNode {
 
 export interface UnionTypeNode extends GraphQLTypeNode, ReferenceNode {
   kind:GQLTypeKind.UNION_TYPE;
+}
+
+// This type is a reference to a unresolved definition
+// Definitions having this type as leaf must assume it is according to expectations
+export interface CircularReferenceTypeNode extends GraphQLTypeNode, ReferenceNode {
+  kind:GQLTypeKind.CIRCULAR_TYPE;
 }
 
 // Scalar Types

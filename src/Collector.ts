@@ -10,7 +10,7 @@ import { MethodParamsParser } from './Parser';
 const SyntaxKind = typescript.SyntaxKind;
 
 export interface CollectorType {
-  types:types.TypeDefinitionMap;
+  resolved:types.TypeDefinitionMap;
   root?:types.SchemaDefinitionNode;
 }
 
@@ -19,12 +19,12 @@ export interface CollectorType {
  * referenced types.
  */
 export class Collector implements CollectorType {
-  types:types.TypeDefinitionMap = new Map();
+  resolved:types.TypeDefinitionMap = new Map();
   root?:types.SchemaDefinitionNode;
   private checker:typescript.TypeChecker;
-  private ts2GqlMap:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
-  private gql2TsMap:Map<types.SymbolName, typescript.Node> = new Map();
-
+  private unresolved:Map<typescript.Node, types.TypeDefinitionNode> = new Map();
+  private unresolvedCircular:Map<string, typescript.TypeAliasDeclaration|typescript.InterfaceDeclaration> = new Map();
+  private circularlyExtending:Set<string> = new Set();
   constructor(program:typescript.Program) {
     this.checker = program.getTypeChecker();
   }
@@ -32,7 +32,7 @@ export class Collector implements CollectorType {
   addRootNode(node:typescript.InterfaceDeclaration):void {
     const collectedRoot = this._walkDeclaration(node);
     if (collectedRoot.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
-      this.types.set(collectedRoot.name, this._concrete(collectedRoot));
+      this.resolved.set(collectedRoot.name, this._concrete(collectedRoot));
     } else if (collectedRoot.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION) {
       throw new excpt.InterfaceError(node,
         `Expected root definition ${node.name.getText()} as GraphQL Object definition. Got ${collectedRoot.kind}.`);
@@ -66,11 +66,11 @@ export class Collector implements CollectorType {
     }
 
     // Remove Root Object from type list
-    this.types.delete(collectedRoot.name);
+    this.resolved.delete(collectedRoot.name);
   }
 
   mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
-    const existing = this.types.get(name);
+    const existing = this.resolved.get(name);
     if (!existing) {
       throw new excpt.InterfaceError(node, `Cannot override '${name}' - it was never included`);
     } else if (existing.kind !== types.GQLDefinitionKind.OBJECT_DEFINITION
@@ -90,11 +90,11 @@ export class Collector implements CollectorType {
   //
 
   _walkDeclaration(node:typescript.Node):types.TypeDefinitionNode {
-    if (this.ts2GqlMap.has(node)) {
-      return this.ts2GqlMap.get(node)!;
+    if (this.unresolved.has(node)) {
+      return this.unresolved.get(node)!;
     }
     const typeDefinition = {} as types.TypeDefinitionNode;
-    this.ts2GqlMap.set(node, typeDefinition);
+    this.unresolved.set(node, typeDefinition);
     let result = null as types.TypeDefinitionNode | null;
 
     switch (node.kind) {
@@ -113,6 +113,15 @@ export class Collector implements CollectorType {
     }
 
     Object.assign(typeDefinition, result);
+    const pending = this.unresolvedCircular.get(typeDefinition.name);
+    if (pending) {
+      const pendingName = pending.name.getText();
+      this.unresolved.delete(pending);
+      this.resolved.delete(pendingName);
+      this.unresolvedCircular.delete(typeDefinition.name);
+      this.circularlyExtending.delete(pendingName);
+      this._walkDeclaration(pending);
+    }
     return typeDefinition;
   }
 
@@ -122,7 +131,6 @@ export class Collector implements CollectorType {
       for (const clause of node.heritageClauses) {
         for (const type of clause.types) {
           const symbol = this._symbolForNode(type.expression);
-          this._walkSymbolDeclaration(symbol);
           inherits.push({
             nullable: false,
             target: this._nameForSymbol(symbol),
@@ -152,7 +160,7 @@ export class Collector implements CollectorType {
   }
 
   _walkType = (node:typescript.Node):types.TypeNode => {
-    let result:types.TypeNode;
+    let result;
     switch (node.kind) {
       case SyntaxKind.ParenthesizedType:
         const parenthesizedNode = node as typescript.ParenthesizedTypeNode;
@@ -194,7 +202,7 @@ export class Collector implements CollectorType {
       if (collected.kind !== types.GQLTypeKind.UNION_TYPE) {
         return collected;
       }
-      const referenced = this.types.get(collected.target)! as types.UnionTypeDefinitionNode;
+      const referenced = this.resolved.get(collected.target)! as types.UnionTypeDefinitionNode;
       return referenced.members;
     });
     return _.flatten<types.TypeNode>(collectedMembers);
@@ -242,15 +250,23 @@ export class Collector implements CollectorType {
 
     const inheritedFields = _.flatten(inherits.map((inherited:types.ReferenceNode) => {
       const inheritedName = inherited.target;
-      const inheritedDefinition = this._unwrapAlias(this.types.get(inheritedName)!);
+      const inheritedDefinition = this._unwrapAlias(this.resolved.get(inheritedName)!);
+
       if (!inheritedDefinition) {
-        throw new excpt.InterfaceError(node, `Found circular reference in inherited interface '${inheritedName}'.`);
+        // Circularly extending a TypeScript interface. Ignore and schedule revisiting
+        this.unresolvedCircular.set(inherited.target, node);
+        this.circularlyExtending.add(name);
+        return [];
       } else if (!inheritedDefinitionChecker(inheritedDefinition)) {
           const expectedType = isInput ? types.GQLDefinitionKind.INPUT_OBJECT_DEFINITION
           : `${types.GQLDefinitionKind.OBJECT_DEFINITION} or ${types.GQLDefinitionKind.INTERFACE_DEFINITION}`;
           const msg = `Incompatible inheritance of '${inheritedDefinition.name}'.`
           + ` Expected type '${expectedType}', got '${inheritedDefinition.kind}'.`;
           throw new excpt.InterfaceError(node, msg);
+      }
+      if (this.circularlyExtending.has(inheritedName)) {
+        // If extending interface found a circular reference, this interface may need to update its fields later on
+        this.unresolvedCircular.set(inheritedName, node);
       }
       return inheritedDefinition.fields as types.FieldDefinitionNode[];
     }));
@@ -287,30 +303,62 @@ export class Collector implements CollectorType {
   _collectFieldDefinition(field:typescript.TypeElement, category:types.GQLTypeCategory):types.FieldDefinitionNode {
     let signature;
     let signatureType;
+    let name;
     let args;
     if (typescript.isMethodSignature(field)) {
       signature = field;
       signatureType = signature.type!;
+      name = signature.name.getText();
+      if (category === types.GQLTypeCategory.INPUT) {
+        const msg = `GraphQL Input Objects Fields must not have argument lists.`;
+        throw new Error(`At property '${name}'\n${msg}`);
+      }
       args = this._collectArgumentsDefinition(signature.parameters);
     } else if (typescript.isPropertySignature(field)) {
       signature = field;
       signatureType = signature.type!;
+      name = signature.name.getText();
       if (typescript.isFunctionTypeNode(signatureType)) {
+        if (category === types.GQLTypeCategory.INPUT) {
+          const msg = `GraphQL Input Objects Fields must not have argument lists.`;
+          throw new Error(`At property '${name}'\n${msg}`);
+        }
         args = this._collectArgumentsDefinition(signatureType.parameters);
       }
     } else {
       throw new excpt.PropertyError(field, `TypeScript ${field.kind} doesn't have a valid Field Signature.`);
     }
-    const name = signature.name!.getText();
-    if (category === types.GQLTypeCategory.INPUT && args) {
-      throw new excpt.PropertyError(field, `GraphQL Input Objects Fields must not have argument lists.`);
-    }
 
-    let type;
+    let type:types.TypeNode;
     try {
       type = this._walkType(typescript.isFunctionTypeNode(signatureType) ? signatureType.type! : signatureType);
     } catch (e) {
       throw new excpt.PropertyError(field, e.message);
+    }
+
+    const unwrappedType = util.isWrappingType(type) ? type.wrapped : type;
+    // When circularly referencing:
+    if (unwrappedType.kind === types.GQLTypeKind.CIRCULAR_TYPE) {
+      const circularlyReferenced = this.resolved.get(unwrappedType.target);
+      if (circularlyReferenced && circularlyReferenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
+        // Aliases are not reliable and demand to recollect the current node
+        this.unresolvedCircular.set(unwrappedType.target, field.parent! as typescript.InterfaceDeclaration);
+      }
+      if (category === types.GQLTypeCategory.INPUT) {
+        // If field of future GraphQL Input, expect TypeScript interface/type to be reference to GraphQL Input
+        type = {
+          nullable: type.nullable,
+          target: unwrappedType.target,
+          kind: types.GQLTypeKind.INPUT_OBJECT_TYPE,
+        };
+      } else {
+        // If field of future GraphQL Object/Interface, expect TypeScript interface/type to be GraphQL Object
+        type = {
+          nullable: type.nullable,
+          target: unwrappedType.target,
+          kind: types.GQLTypeKind.OBJECT_TYPE,
+        };
+      }
     }
 
     if (field.kind === SyntaxKind.PropertySignature && field.questionToken) {
@@ -385,18 +433,16 @@ export class Collector implements CollectorType {
   }
 
   _collectReferenceForSymbol(symbol:typescript.Symbol):types.ReferenceTypeNode | types.IntTypeNode | types.IDTypeNode {
-    let referenced = this._walkSymbolDeclaration(symbol);
+    const referenced = this._walkSymbolDeclaration(symbol);
     const name = this._nameForSymbol(symbol);
-
     if (!referenced) {
       throw new Error(`Could not find declaration for symbol '${name}'.`);
-    } else if (!referenced.kind) {
-      throw new Error(`Found circular reference for symbol '${name}'.`);
-    } else if (referenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
-      const concreteReference = this._concrete(referenced);
-      this.ts2GqlMap.set(this.gql2TsMap.get(referenced.name)!, concreteReference);
-      this.types.set(name, concreteReference);
-      referenced = concreteReference;
+    } else if (!this.resolved.get(name)) {
+      return {
+        nullable: false,
+        target: name,
+        kind: types.GQLTypeKind.CIRCULAR_TYPE,
+      };
     }
 
     let nullable = false;
@@ -404,19 +450,27 @@ export class Collector implements CollectorType {
     if (util.isNullableDefinition(referenced)) {
       nullable = referenced.nullable;
     }
-
     const reference  = {
       target: name,
       nullable,
     } as types.ReferenceTypeNode | types.IntTypeNode | types.IDTypeNode;
 
-    let kind:types.ReferenceTypeNode['kind'] | types.GQLTypeKind.INT_TYPE | types.GQLTypeKind.ID_TYPE | undefined;
-    if (referenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
-      referenced = this._unwrapAlias(referenced);
-      kind = types.DefinitionFromType.get(referenced.kind);
-    } else {
-      kind = types.DefinitionFromType.get(referenced.kind);
+    let unwrappedReferenced = referenced.kind === types.GQLDefinitionKind.DEFINITION_ALIAS ?
+    this._unwrapAlias(referenced) : referenced;
+    if (!unwrappedReferenced) {
+      return {
+        ...reference,
+        kind: types.GQLTypeKind.CIRCULAR_TYPE,
+        target: referenced.name,
+      };
+    } else if (unwrappedReferenced.kind === types.GQLDefinitionKind.INTERFACE_DEFINITION) {
+      const concreteReference = this._concrete(unwrappedReferenced);
+      this.resolved.set(name, concreteReference);
+      unwrappedReferenced = concreteReference;
     }
+
+    let kind:types.ReferenceTypeNode['kind'] | types.GQLTypeKind.INT_TYPE | types.GQLTypeKind.ID_TYPE | undefined;
+    kind = types.DefinitionFromType.get(unwrappedReferenced.kind);
     // Scalar definitions may mean Int or ID TypeScript definition
     if (referenced.kind === types.GQLDefinitionKind.SCALAR_DEFINITION && referenced.builtIn) {
       kind = referenced.builtIn;
@@ -485,8 +539,8 @@ export class Collector implements CollectorType {
     let definition:types.ScalarTypeDefinitionNode | types.UnionTypeDefinitionNode | types.EnumTypeDefinitionNode |
     types.DefinitionAliasNode;
     try {
-      if (node.type!.kind === SyntaxKind.UnionType) {
-        definition = this._walkUnion(node.type! as typescript.UnionTypeNode, name, doc);
+      if (typescript.isUnionTypeNode(node.type)) {
+        definition = this._walkUnion(node.type, name, doc);
       } else {
         const aliasType = this._walkType(node.type);
         if (util.isBuiltInScalar(aliasType)) {
@@ -499,6 +553,13 @@ export class Collector implements CollectorType {
           };
           definition.builtIn = this._collectIntOrIDKind(aliasType, doc);
         } else if (util.isReferenceType(aliasType)) {
+          if (aliasType.kind === types.GQLTypeKind.CIRCULAR_TYPE) {
+            if (aliasType.target === name) {
+              throw new Error(`An alias can not alias itself.`);
+            }
+            // Enqueue this alias resolution
+            this.unresolvedCircular.set(aliasType.target, node);
+          }
           definition = {
             documentation: doc,
             description: this._collectDescription(doc),
@@ -508,7 +569,7 @@ export class Collector implements CollectorType {
             target: aliasType.target,
           };
         } else {
-          throw new excpt.TypeAliasError(node, `Unsupported alias for GraphQL type ${aliasType.kind}`);
+          throw new Error(`Unsupported alias for GraphQL type ${aliasType.kind}`);
         }
       }
     } catch (e) {
@@ -576,6 +637,9 @@ export class Collector implements CollectorType {
           kind: types.GQLDefinitionKind.SCALAR_DEFINITION,
         };
       }
+      if (nonNullMember.target === name) {
+        throw new Error(`An alias can not alias itself`);
+      }
       return {
         documentation: doc,
         description,
@@ -589,7 +653,7 @@ export class Collector implements CollectorType {
     // If all elements are enums, build a merged single enum
     if (unionMembers.every(member => member.kind === types.GQLTypeKind.ENUM_TYPE)) {
       const enumReferences = unionMembers as types.EnumTypeNode[];
-      const enums = enumReferences.map(member => this.types.get(member.target)) as types.EnumTypeDefinitionNode[];
+      const enums = enumReferences.map(member => this.resolved.get(member.target)) as types.EnumTypeDefinitionNode[];
       return {
         documentation: doc,
         description,
@@ -602,6 +666,15 @@ export class Collector implements CollectorType {
 
     // GraphQL Union only allow GraphQL Objects as members
     const collectedUnion = unionMembers.map((member) => {
+      if (member.kind === types.GQLTypeKind.CIRCULAR_TYPE) {
+        // Circular reference: assume it's an unresolved object type but schedule revisiting
+        this.unresolvedCircular.set(member.target, node.parent! as typescript.TypeAliasDeclaration);
+        return {
+          kind: types.GQLTypeKind.OBJECT_TYPE,
+          nullable: member.nullable,
+          target: member.target,
+        } as types.ObjectTypeNode;
+      }
       if (member.kind !== types.GQLTypeKind.OBJECT_TYPE) {
         throw new Error(`GraphQL does not support ${member.kind} as an union member.`);
       }
@@ -661,12 +734,12 @@ export class Collector implements CollectorType {
 
   _addTypeDefinition<T extends types.TypeDefinitionNode>(typeDefinition:T):T {
     const name = typeDefinition.name;
-    const defined = this.types.get(name);
+    const defined = this.resolved.get(name);
     if (defined) {
       throw new Error(`Conflicting references for symbol ${name}.`
       + `Defined as ${defined.kind} and ${typeDefinition.kind}.`);
     }
-    this.types.set(name, typeDefinition);
+    this.resolved.set(name, typeDefinition);
     return typeDefinition;
   }
 
@@ -729,12 +802,12 @@ export class Collector implements CollectorType {
     });
   }
 
-  _unwrapAlias(referenced:types.TypeDefinitionNode):types.TypeDefinitionNode {
+  _unwrapAlias(referenced:types.TypeDefinitionNode):types.TypeDefinitionNode|undefined {
     let aliasedRef:types.DefinitionAliasNode|types.TypeDefinitionNode = referenced;
       while (aliasedRef.kind === types.GQLDefinitionKind.DEFINITION_ALIAS) {
-        const aliasedTarget = this.types.get(aliasedRef.target);
+        const aliasedTarget = this.resolved.get(aliasedRef.target);
         if (!aliasedTarget) {
-          throw new Error(`Broken alias chain. Could not find declaration for aliased symbol ${aliasedRef.target}`);
+          return undefined;
         }
         aliasedRef = aliasedTarget;
       }

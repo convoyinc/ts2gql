@@ -8,7 +8,7 @@ describe(`Emitter`, () => {
   let emitter:Emitter;
   beforeEach(() => {
     const collector = ts2gql.load('./test/schema.ts', ['Schema']);
-    loadedTypes = collector.types;
+    loadedTypes = collector.resolved;
     emitter = new Emitter(collector);
   });
 
