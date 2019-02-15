@@ -180,10 +180,11 @@ export class Collector implements CollectorType {
 
   _walkUnion(node:typescript.UnionTypeNode):types.TypeNode;
   _walkUnion(node:typescript.UnionTypeNode, name:types.SymbolName,
-  doc?:doctrine.ParseResult):types.UnionTypeDefinitionNode | types.ScalarTypeDefinitionNode | types.DefinitionAliasNode;
+  doc?:doctrine.ParseResult):types.UnionTypeDefinitionNode | types.ScalarTypeDefinitionNode | types.DefinitionAliasNode
+  | types.EnumTypeDefinitionNode;
   _walkUnion(node:typescript.UnionTypeNode, name?:types.SymbolName,
   doc?:doctrine.ParseResult):types.TypeNode | types.UnionTypeDefinitionNode | types.ScalarTypeDefinitionNode
-  | types.DefinitionAliasNode {
+  | types.EnumTypeDefinitionNode | types.DefinitionAliasNode {
     return name ? this._collectUnionDefinition(node, name, doc) : this._collectUnionExpression(node);
   }
 
@@ -540,7 +541,7 @@ export class Collector implements CollectorType {
 
   _collectUnionDefinition(node:typescript.UnionTypeNode, name:types.SymbolName,
   doc?:doctrine.ParseResult):types.UnionTypeDefinitionNode | types.ScalarTypeDefinitionNode
-  | types.DefinitionAliasNode {
+  | types.EnumTypeDefinitionNode | types.DefinitionAliasNode {
     const description = this._collectDescription(doc);
     const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
     const nullable = unionMembers.length < node.types.length || unionMembers.every(member => member.nullable);
@@ -573,7 +574,21 @@ export class Collector implements CollectorType {
       };
     }
 
-    // GraphQL only allow unions of GraphQL Objects
+    // If all elements are enums, build a merged single enum
+    if (unionMembers.every(member => member.kind === types.GQLTypeKind.ENUM_TYPE)) {
+      const enumReferences = unionMembers as types.EnumTypeNode[];
+      const enums = enumReferences.map(member => this.types.get(member.target)) as types.EnumTypeDefinitionNode[];
+      return {
+        documentation: doc,
+        description,
+        kind: types.GQLDefinitionKind.ENUM_DEFINITION,
+        name,
+        nullable,
+        fields: _.uniqBy(_.flatten(enums.map(enumDef => enumDef.fields)), enumField => enumField.name),
+      };
+    }
+
+    // GraphQL Union only allow GraphQL Objects as members
     const collectedUnion = unionMembers.map((member) => {
       if (member.kind !== types.GQLTypeKind.OBJECT_TYPE) {
         throw new Error(`GraphQL does not support ${member.kind} as an union member.`);
@@ -614,6 +629,7 @@ export class Collector implements CollectorType {
       documentation,
       description,
       name: node.name.getText(),
+      nullable: false,
       kind: types.GQLDefinitionKind.ENUM_DEFINITION,
       fields,
     });
