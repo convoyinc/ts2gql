@@ -11,7 +11,7 @@ export default class Emitter {
   private emissionMap:Map<types.SymbolName, string> = new Map();
   private emissionQueue:types.SymbolName[] = [];
   constructor(collector:CollectorType) {
-    this.typeMap = collector.resolved;
+    this.typeMap = collector.types;
     if (!collector.root) {
       throw new Error(`Empty schema definition.`);
     }
@@ -32,7 +32,7 @@ export default class Emitter {
       const mutationRootName = this._name(this.root.mutation!);
       this._emitTopLevelNode(mutation, mutationRootName);
     }
-    this.emissionQueue.forEach(emissionElem => stream.write(`${this.emissionMap.get(emissionElem)}\n`));
+    this.emissionQueue.forEach(emissionElem => stream.write(`${this.emissionMap.get(emissionElem)!}\n`));
     stream.write(`${this._emitSchema()}\n`);
   }
 
@@ -66,9 +66,6 @@ export default class Emitter {
         break;
       case types.GQLDefinitionKind.DEFINITION_ALIAS:
         const aliased = this.typeMap.get(node.target)!;
-        if (aliased.name === name) {
-          throw new Error(`Can not emit alias with same name of original type.`);
-        }
         content = this._emitTopLevelNode(aliased, name);
         return;
       default:
