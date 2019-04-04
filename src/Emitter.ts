@@ -158,18 +158,12 @@ export default class Emitter {
   }
 
   _emitUnion(node:types.UnionTypeDefinitionNode, name:types.SymbolName):string {
-    const nodeNames = node.members.map(member => this._emitReference(member));
+    const nodeNames = node.members.map(member => this._emitExpression(member));
     return `union ${this._name(name)} = ${nodeNames.join(' | ')}`;
   }
 
   _emitScalarDefinition(node:types.ScalarTypeDefinitionNode, name:types.SymbolName):string {
     return node.builtIn ? '' : `scalar ${this._name(name)}`;
-  }
-
-  _emitReference(node:types.ReferenceNode) {
-    const referenceName = this._name(node.target);
-    this._emitTopLevelNode(this.typeMap.get(referenceName)!, referenceName);
-    return referenceName;
   }
 
   _emitExpression = (node:types.TypeNode|types.ValueNode):string => {
@@ -179,7 +173,9 @@ export default class Emitter {
     const required = node.nullable ? '' : '!';
     let emitted = '';
     if (util.isReferenceType(node)) {
-      emitted = this._emitReference(node);
+      const referenceName = this._name(node.target);
+      this._emitTopLevelNode(this.typeMap.get(referenceName)!, referenceName);
+      emitted = referenceName;
     } else if (node.kind === types.GQLTypeKind.LIST_TYPE) {
       emitted = `[${this._emitExpression(node.wrapped)}]`;
     } else if (node.kind === types.GQLTypeKind.STRING_TYPE) {

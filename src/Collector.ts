@@ -188,18 +188,6 @@ export class Collector implements CollectorType {
     return name ? this._collectUnionDefinition(node, name, doc) : this._collectUnionExpression(node);
   }
 
-  _walkUnionMembersFlat(unionTypes:typescript.Node[]):types.TypeNode[] {
-    const collectedMembers = unionTypes.map((type) => {
-      const collected = this._walkType(type);
-      if (collected.kind !== types.GQLTypeKind.UNION_TYPE) {
-        return collected;
-      }
-      const referenced = this.types.get(collected.target)! as types.UnionTypeDefinitionNode;
-      return referenced.members;
-    });
-    return _.flatten<types.TypeNode>(collectedMembers);
-  }
-
   //
   // GraphQL Node Collecting
   //
@@ -555,7 +543,7 @@ export class Collector implements CollectorType {
   doc?:doctrine.ParseResult):types.UnionTypeDefinitionNode | types.ScalarTypeDefinitionNode
   | types.EnumTypeDefinitionNode | types.DefinitionAliasNode {
     const description = this._collectDescription(doc);
-    const unionMembers = this._walkUnionMembersFlat(this._filterNullUndefined(node.types));
+    const unionMembers = this._filterNullUndefined(node.types).map(this._walkType);
     const nullable = unionMembers.length < node.types.length || unionMembers.every(member => member.nullable);
 
     // Only one member: create alias nullable by default
@@ -614,7 +602,7 @@ export class Collector implements CollectorType {
       kind: types.GQLDefinitionKind.UNION_DEFINITION,
       name,
       nullable,
-      members: _.uniqBy(collectedUnion, member => member.target),
+      members: collectedUnion,
     };
   }
 
