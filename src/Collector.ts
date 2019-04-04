@@ -79,8 +79,8 @@ export class Collector implements CollectorType {
     }
     const overrides = node.members.map(member => this._collectFieldDefinition(member, types.GQLTypeCategory.OUTPUT));
     const overriddenNames = new Set(overrides.map(prop => prop.name));
-    existing.fields = _(existing.fields)
-      .filter(m => !overriddenNames.has(m.name))
+    existing.fields = _(existing.fields as any)
+      .filter((m:any) => !overriddenNames.has(m.name))
       .concat(overrides)
       .value();
   }
