@@ -131,6 +131,7 @@ export class Collector implements CollectorType {
       for (const clause of node.heritageClauses) {
         for (const type of clause.types) {
           const symbol = this._symbolForNode(type.expression);
+          this._walkSymbolDeclaration(symbol)
           inherits.push({
             nullable: false,
             target: this._nameForSymbol(symbol),
