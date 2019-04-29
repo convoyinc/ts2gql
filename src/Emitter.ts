@@ -132,7 +132,7 @@ export default class Emitter {
     if (!members.length) {
       members.push({
         type: 'property',
-        name: '__placeholder',
+        name: '_placeholder',
         signature: {type: 'boolean'},
       });
     }
