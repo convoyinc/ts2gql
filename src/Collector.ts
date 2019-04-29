@@ -142,7 +142,6 @@ export default class Collector {
       name: node.name.getText(),
       parameters,
       returns: this._walkNode(node.type!),
-      documentation: util.documentationForNode(node),
     };
   }
 
@@ -151,7 +150,6 @@ export default class Collector {
       type: 'property',
       name: node.name.getText(),
       signature: this._walkNode(node.type!),
-      documentation: util.documentationForNode(node),
     };
   }
 
@@ -171,7 +169,6 @@ export default class Collector {
       const values = node.members.map(m => {
         // If the user provides an initializer, use the value of the initializer
         // as the GQL enum value _unless_ the initializer is a numeric literal.
-        let key:string;
         if (m.initializer && m.initializer.kind !== SyntaxKind.NumericLiteral) {
           /**
            *  Enums with initializers can look like:
@@ -192,7 +189,7 @@ export default class Collector {
            *    }
            */
           const target = _.last(m.initializer.getChildren()) || m.initializer;
-          key = _.trim(target.getText(), "'\"");
+          return _.trim(target.getText(), "'\"");
         } else {
           /**
            *  For Enums without initializers (or with numeric literal initializers), emit the
@@ -202,18 +199,12 @@ export default class Collector {
            *      ACCEPTED,
            *    }
            */
-          key = _.trim(m.name.getText(), "'\"");
+          return _.trim(m.name.getText(), "'\"");
         }
-        return <types.EnumValueNode>({
-          type: 'enum value',
-          key,
-          documentation: util.documentationForNode(m),
-        });
       });
       return {
         type: 'enum',
         values,
-        documentation: util.documentationForNode(node),
       };
     });
   }

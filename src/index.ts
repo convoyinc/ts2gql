@@ -11,9 +11,6 @@ export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMa
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
   const schemaRoot = program.getSourceFile(schemaRootPath);
-  if (!schemaRoot) {
-    throw new Error(`getSourceFile(${JSON.stringify(schemaRootPath)}) failed`);
-  }
 
   const interfaces:{[key:string]:typescript.InterfaceDeclaration} = {};
   typescript.forEachChild(schemaRoot, (node) => {
