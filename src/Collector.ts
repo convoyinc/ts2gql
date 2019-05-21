@@ -292,7 +292,12 @@ export default class Collector {
       parts.unshift(this.checker.symbolToString(symbol));
       symbol = symbol['parent'];
       // Don't include raw module names.
-      if (symbol && symbol.flags === typescript.SymbolFlags.ValueModule) break;
+      const node = symbol && symbol.declarations ? symbol.declarations[0] : undefined;
+
+      // https://github.com/microsoft/TypeScript/blob/922186834fd54d7a095c4995528f04f6e5dae41a/src/compiler/types.ts
+      if (node && node.kind === typescript.SyntaxKind.SourceFile) {
+        break;
+      }
     }
 
     return parts.join('.');
