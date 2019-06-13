@@ -7,6 +7,9 @@ import * as util from './util';
 import Collector from './Collector';
 import Emitter from './Emitter';
 
+export * from './types';
+export { Emitter };
+
 export function load(schemaRootPath:string, rootNodeNames:string[]):types.TypeMap {
   schemaRootPath = path.resolve(schemaRootPath);
   const program = typescript.createProgram([schemaRootPath], {});
