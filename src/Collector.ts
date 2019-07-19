@@ -273,9 +273,11 @@ export default class Collector {
     node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration,
     typeBuilder:() => types.Node,
   ):types.Node {
-    const name = this._nameForSymbol(this._symbolForNode(node.name));
+    const symbol = this._symbolForNode(node.name);
+    const name = this._nameForSymbol(symbol);
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
+    type.exportedAs = this._exportPathFor(symbol, node);
     (<types.ComplexNode>type).documentation = util.documentationForNode(node);
     this.types[name] = type;
     return type;
@@ -316,6 +318,79 @@ export default class Collector {
       type: 'reference',
       target: this._nameForSymbol(symbol),
     };
+  }
+
+  /**
+   * Find the module and export path where a symbol can be found via.
+   */
+  _exportPathFor(
+    symbol:typescript.Symbol,
+    node:typescript.Node,
+  ):{ fileName:string; path:string[] } | undefined {
+    const symbolPath = this._symbolPath(symbol);
+    const sourceFile = node.getSourceFile();
+
+    const rootName = this._exportedNameFor(sourceFile, symbolPath[0]);
+    if (!rootName) return;
+
+    return {
+      fileName: sourceFile.fileName,
+      path: [rootName, ...symbolPath.slice(1).map(s => s.name)],
+    };
+  }
+
+  _symbolPath(symbol:typescript.Symbol):typescript.Symbol[] {
+    const path = [symbol];
+    while (symbol) {
+      const parent = (symbol as any).parent as typescript.Symbol | undefined;
+      if (!parent || this._isSourceFileSymbol(parent)) break;
+      path.unshift(parent);
+      symbol = parent;
+    }
+
+    return path;
+  }
+
+  _isSourceFileSymbol({ declarations }:typescript.Symbol) {
+    if (!declarations) return false;
+    return declarations.some(d => d.kind === typescript.SyntaxKind.SourceFile);
+  }
+
+  /**
+   * Given a symbol, find the nearest exported symbol that can be used to
+   * reference it within a particular module.
+   */
+  _exportedNameFor(sourceFile:typescript.SourceFile, symbol:typescript.Symbol) {
+    const moduleSymbol = (sourceFile as any).symbol as typescript.Symbol;
+    const moduleExports = this.checker.getExportsOfModule(moduleSymbol);
+    for (const moduleExport of moduleExports) {
+      const { declarations } = moduleExport;
+      if (!declarations) continue;
+      // Exports are only ever expected to have a single declaration.
+      const exportDeclaration = declarations[0];
+
+      // export default <somename>
+      if (typescript.isExportAssignment(exportDeclaration)) {
+        const { expression } = exportDeclaration;
+
+        // e.g. `export default <somename>`
+        if (typescript.isIdentifier(expression)) {
+          if (this.checker.getSymbolAtLocation(expression) === symbol) {
+            return moduleExport.getName(); // 'default'
+          }
+        }
+      }
+
+      // export { <somename> }
+      if (typescript.isExportSpecifier(exportDeclaration)) {
+        const exportedSymbol = this.checker.getSymbolAtLocation(exportDeclaration.name);
+        if (exportedSymbol && this.checker.getAliasedSymbol(exportedSymbol) === symbol) {
+          return exportDeclaration.name.text;
+        }
+      }
+    }
+
+    return;
   }
 
 }
