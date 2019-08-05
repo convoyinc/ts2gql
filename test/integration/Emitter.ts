@@ -8,7 +8,7 @@ describe(`Emitter`, () => {
   let loadedTypes:types.TypeMap;
   let emitter:Emitter;
   beforeEach(() => {
-    loadedTypes = ts2gql.load('./test/schema.ts', ['Schema']);
+    loadedTypes = ts2gql.load('./test/fixtures/schema.ts', ['Schema']);
     emitter = new Emitter(loadedTypes);
   });
 
