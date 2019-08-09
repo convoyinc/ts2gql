@@ -1,16 +1,10 @@
+import { Seasons } from './common';
+import { Droid } from './Droid';
+import Starship from './Starship';
+
 export interface Human {
   name:string;
   height:number;
-}
-
-export interface Droid {
-  name:string;
-  primaryFunction:string;
-}
-
-export interface Starship {
-  name:string;
-  length:number;
 }
 
 export enum Color {
@@ -28,13 +22,6 @@ export enum Planet {
   CHTHONIAN    = 'CHTHONIAN',
   CIRCUMBINARY = 'CIRCUMBINARY',
   PLUTOID      = 'PLUTOID',
-}
-
-export enum Seasons {
-  SPRING   = "SPRING",
-  SUMMER   = "SUMMER",
-  FALL     = "FALL",
-  WINTER   = "WINTER",
 }
 
 export enum Cloud {
