@@ -2,7 +2,14 @@ import * as doctrine from 'doctrine';
 
 export type SymbolName = string;
 
-export interface ComplexNode {
+export interface BaseNode {
+  exportedAs?:{
+    fileName:string;
+    path:string[];
+  };
+}
+
+export interface ComplexNode extends BaseNode {
   documentation?:doctrine.ParseResult;
 }
 
@@ -51,29 +58,29 @@ export interface UnionNode extends ComplexNode {
   types:Node[];
 }
 
-export interface LiteralObjectNode {
+export interface LiteralObjectNode extends BaseNode {
   type:'literal object';
   members:Node[];
 }
 
-export interface StringLiteralNode {
+export interface StringLiteralNode extends BaseNode {
   type:'string literal';
   value:string;
 }
 
-export interface StringNode {
+export interface StringNode extends BaseNode {
   type:'string';
 }
 
-export interface NumberNode {
+export interface NumberNode extends BaseNode {
   type:'number';
 }
 
-export interface BooleanNode {
+export interface BooleanNode extends BaseNode {
   type:'boolean';
 }
 
-export interface AnyNode {
+export interface AnyNode extends BaseNode {
   type:'any';
 }
 
