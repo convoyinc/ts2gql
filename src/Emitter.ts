@@ -56,18 +56,19 @@ export default class Emitter {
     } else if (node.target.type === 'reference') {
       return `union ${this._name(name)} = ${this._name(node.target.target)}`;
     } else if (node.target.type === 'union') {
-      return this._emitUnion(node.target, name);
+      return this._emitUnion(node.target, name, node);
     } else {
       throw new Error(`Can't serialize ${JSON.stringify(node.target)} as an alias`);
     }
   }
 
-  _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
+  _emitUnion(node:Types.UnionNode, name:Types.SymbolName, parent:Types.BaseNode):string {
     if (_.every(node.types, entry => entry.type === 'string literal')) {
       const nodeValues = node.types.map((type:Types.StringLiteralNode) => type.value);
       return this._emitEnum({
         type: 'enum',
         values: _.uniq(nodeValues),
+        exportedAs: parent.exportedAs,
       }, this._name(name));
     }
 
@@ -90,6 +91,7 @@ export default class Emitter {
       return this._emitEnum({
         type: 'enum',
         values: _.uniq(_.flatten(nodeTypes)),
+        exportedAs: parent.exportedAs,
       }, this._name(name));
     } else if (firstChildType.type === 'interface') {
       const nodeNames = node.types.map((type:ReferenceNode) => {
