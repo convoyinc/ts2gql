@@ -330,7 +330,7 @@ export default class Collector {
     const symbolPath = this._symbolPath(symbol);
     const sourceFile = node.getSourceFile();
 
-    const rootName = this._exportedNameFor(sourceFile, symbolPath[0]);
+    const rootName = this._exportedNameFor(sourceFile, symbolPath[0], node);
     if (!rootName) return;
 
     return {
@@ -360,9 +360,10 @@ export default class Collector {
    * Given a symbol, find the nearest exported symbol that can be used to
    * reference it within a particular module.
    */
-  _exportedNameFor(sourceFile:typescript.SourceFile, symbol:typescript.Symbol) {
+  _exportedNameFor(sourceFile:typescript.SourceFile, symbol:typescript.Symbol, node:typescript.Node) {
     const moduleSymbol = (sourceFile as any).symbol as typescript.Symbol;
     const moduleExports = this.checker.getExportsOfModule(moduleSymbol);
+
     for (const moduleExport of moduleExports) {
       const { declarations } = moduleExport;
       if (!declarations) continue;
@@ -388,6 +389,13 @@ export default class Collector {
           return exportDeclaration.name.text;
         }
       }
+    }
+
+    // export <named thing>
+    // Must be checked last, as it masks other cases.
+    const exportName = (typescript as any).getExportName(node);
+    if (exportName && exportName.text !== '') {
+      return exportName.text;
     }
 
     return;
