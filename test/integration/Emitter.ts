@@ -17,7 +17,7 @@ describe(`Emitter`, () => {
       const expected = `union FooSearchResult = Human | Droid | Starship`;
       const aliasNode = loadedTypes['UnionOfInterfaceTypes'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;
-      const val = emitter._emitUnion(unionNode, 'FooSearchResult');
+      const val = emitter._emitUnion(unionNode, 'FooSearchResult', aliasNode);
       expect(val).to.eq(expected);
     });
 
@@ -32,7 +32,7 @@ describe(`Emitter`, () => {
 }`;
       const aliasNode = loadedTypes['UnionOfEnumTypes'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;
-      const val = emitter._emitUnion(unionNode, 'FooSearchResult');
+      const val = emitter._emitUnion(unionNode, 'FooSearchResult', aliasNode);
       expect(val).to.eq(expected);
     });
 
@@ -48,7 +48,7 @@ describe(`Emitter`, () => {
 }`;
       const aliasNode = loadedTypes['QuarkFlavor'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;
-      const val = emitter._emitUnion(unionNode, 'QuarkFlavor');
+      const val = emitter._emitUnion(unionNode, 'QuarkFlavor', aliasNode);
       expect(val).to.eq(expected);
     });
 
@@ -56,7 +56,7 @@ describe(`Emitter`, () => {
       const aliasNode = loadedTypes['UnionOfInterfaceAndOtherTypes'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;
       expect(() => {
-        emitter._emitUnion(unionNode, 'FooSearchResult');
+        emitter._emitUnion(unionNode, 'FooSearchResult', aliasNode);
       }).to.throw('ts2gql expected a union of only interfaces since first child is an interface. Got a reference');
     });
 
@@ -64,7 +64,7 @@ describe(`Emitter`, () => {
       const aliasNode = loadedTypes['UnionOfEnumAndOtherTypes'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;
       expect(() => {
-        emitter._emitUnion(unionNode, 'FooSearchResult');
+        emitter._emitUnion(unionNode, 'FooSearchResult', aliasNode);
       }).to.throw('ts2gql expected a union of only enums since first child is an enum. Got a reference');
     });
 
@@ -72,7 +72,7 @@ describe(`Emitter`, () => {
       const aliasNode = loadedTypes['UnionOfNonReferenceTypes'] as AliasNode;
       const unionNode = aliasNode.target as UnionNode;
       expect(() => {
-        emitter._emitUnion(unionNode, 'FooSearchResult');
+        emitter._emitUnion(unionNode, 'FooSearchResult', aliasNode);
       }).to.throw('GraphQL unions require that all types are references. Got a boolean');
     });
   });
