@@ -1,11 +1,14 @@
 import * as _ from 'lodash';
+import * as fs from 'fs';
 import * as typescript from 'typescript';
 import * as path from 'path';
 
 import * as types from './types';
 import * as util from './util';
 import Collector from './Collector';
-import Emitter from './Emitter';
+import Emitter, { EmitterOptions } from './Emitter';
+
+import findup = require('findup-sync');
 
 export * from './types';
 export { Emitter };
@@ -56,12 +59,46 @@ export function emit(
   schemaRootPath:string,
   rootNodeNames:string[],
   stream:NodeJS.WritableStream = process.stdout,
+  options?:EmitterOptions,
 ):void {
   const loadedTypes = load(schemaRootPath, rootNodeNames);
-  const emitter = new Emitter(loadedTypes);
+  const emitter = new Emitter(loadedTypes, options);
   emitter.emitAll(stream);
 }
 
 function isNodeExported(node:typescript.Node):boolean {
   return !!node.modifiers && node.modifiers.some(m => m.kind === typescript.SyntaxKind.ExportKeyword);
+}
+
+export function cli(argv:string[], outstream:fs.WriteStream) {
+  const schemaRootPath = argv[2];
+  const rootNodeNames = argv.slice(3);
+  // Basic CLI "flags" for now.
+  //
+  // If this gets wider use, or we end up introducing more flags, we should
+  // invest in more robust argument parsing.
+  const options = _determineEmitterConfigurationFromEnv(schemaRootPath);
+
+  emit(schemaRootPath, rootNodeNames, outstream, options);
+}
+
+function _determineEmitterConfigurationFromEnv(schemaRootPath:string):EmitterOptions {
+  const options: EmitterOptions = {};
+  // Emit @importedFrom directives on enums (and anything else that might need
+  // them, in the future).
+  if (process.env.EMIT_IMPORT_DIRECTIVES) {
+    // Find the TypeScript project containing the schema.
+    const tsconfigPath = findup('tsconfig.json', { cwd: path.dirname(schemaRootPath) });
+    if (!tsconfigPath) {
+      throw new Error(`EMIT_IMPORT_DIRECTIVES requires a tsconfig.json to exist above the schema root (${schemaRootPath})`);
+    }
+
+    options.emitImportedFromDirectives = true;
+    options.modulesRelativeTo = {
+      directory: path.dirname(tsconfigPath),
+      tsconfig: JSON.parse(fs.readFileSync(tsconfigPath, 'utf-8')),
+    };
+  }
+
+  return options;
 }
