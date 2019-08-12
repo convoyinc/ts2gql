@@ -1,0 +1,104 @@
+
+scalar Date
+
+type Human {
+  height: Float
+  name: String
+}
+
+enum Droid_Function {
+  PROTOCOL
+  MILITARY
+}
+
+type Droid {
+  name: String
+  primaryFunction: Droid_Function
+}
+
+enum Starship_Type {
+  XWING
+  ENTERPRISE
+  FIREFLY
+}
+
+type Starship {
+  length: Float
+  name: String
+  type: Starship_Type
+}
+
+union UnionOfInterfaceTypes = Human | Droid | Starship
+
+enum Color {
+  Red
+  Yellow
+  Blue
+}
+
+enum Size {
+  Big
+  Small
+}
+
+enum UnionOfEnumTypes {
+  Red
+  Yellow
+  Blue
+  Big
+  Small
+}
+
+enum Planet {
+  CHTHONIAN
+  CIRCUMBINARY
+  PLUTOID
+}
+
+enum Seasons {
+  SPRING
+  SUMMER
+  FALL
+  WINTER
+}
+
+enum Cloud {
+  ALTOSTRATUS
+  CIRROCUMULUS
+  CUMULONIMBUS
+}
+
+enum Ordinal {
+  FIRST
+  SECOND
+  THIRD
+}
+
+enum QuarkFlavor {
+  UP
+  DOWN
+  CHARM
+  STRANGE
+  TOP
+  BOTTOM
+}
+
+type QueryRoot {
+  cloudTypes: Cloud
+  ordinalTypes: Ordinal
+  planetTypes: Planet
+  quarkFlavorTypes: QuarkFlavor
+  seasonTypes: Seasons
+  unionOfEnumTypes: [UnionOfEnumTypes]
+  unionOfInterfaceTypes: [UnionOfInterfaceTypes]
+}
+
+type MutationRoot {
+  _placeholder: Boolean
+}
+
+type Schema {
+  mutation: MutationRoot
+  query: QueryRoot
+}
+
