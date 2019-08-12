@@ -51,9 +51,6 @@ export type UnionOfNonReferenceTypes = boolean | string;
 export interface QueryRoot {
   unionOfInterfaceTypes():UnionOfInterfaceTypes[];
   unionOfEnumTypes():UnionOfEnumTypes[];
-  unionOfInterfaceAndOtherTypes():UnionOfInterfaceAndOtherTypes[];
-  unionOfEnumAndOtherTypes():UnionOfEnumAndOtherTypes[];
-  unionOfNonReferenceTypes():UnionOfNonReferenceTypes[];
   planetTypes():Planet;
   seasonTypes():Seasons;
   cloudTypes():Cloud;
@@ -61,11 +58,22 @@ export interface QueryRoot {
   quarkFlavorTypes():QuarkFlavor;
 }
 
+// References to invalid types
+export interface BustedQueryRoot extends QueryRoot {
+  unionOfInterfaceAndOtherTypes():UnionOfInterfaceAndOtherTypes[];
+  unionOfEnumAndOtherTypes():UnionOfEnumAndOtherTypes[];
+  unionOfNonReferenceTypes():UnionOfNonReferenceTypes[];
+}
+
 export interface MutationRoot {
 }
 
-/** @graphql schema */
 export interface Schema {
   query:QueryRoot;
+  mutation:MutationRoot;
+}
+
+export interface BustedSchema {
+  query:BustedQueryRoot;
   mutation:MutationRoot;
 }

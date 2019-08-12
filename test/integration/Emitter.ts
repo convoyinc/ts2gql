@@ -8,7 +8,8 @@ describe(`Emitter`, () => {
   let loadedTypes:types.TypeMap;
   let emitter:Emitter;
   beforeEach(() => {
-    loadedTypes = ts2gql.load('./test/fixtures/schema.ts', ['Schema']);
+    // 'BustedSchema' includes all types, including invalid ones.
+    loadedTypes = ts2gql.load('./test/fixtures/schema.ts', ['BustedSchema']);
     emitter = new Emitter(loadedTypes);
   });
 
