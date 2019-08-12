@@ -74,7 +74,7 @@ export default class Emitter {
 
     node.types.map(type => {
       if (type.type !== 'reference') {
-        throw new Error(`GraphQL unions require that all types are references. Got a ${type.type}`);
+        throw new Error(`GraphQL unions require that all types are references. Got a ${type.type} for ${name}`);
       }
     });
 
@@ -84,7 +84,7 @@ export default class Emitter {
       const nodeTypes = node.types.map((type:ReferenceNode) => {
         const subNode = this.types[type.target];
         if (subNode.type !== 'enum') {
-          throw new Error(`ts2gql expected a union of only enums since first child is an enum. Got a ${type.type}`);
+          throw new Error(`ts2gql expected a union of only enums since first child is an enum. Got a ${type.type} for ${name}`);
         }
         return subNode.values;
       });
@@ -98,7 +98,7 @@ export default class Emitter {
         const subNode = this.types[type.target];
         if (subNode.type !== 'interface') {
           throw new Error(`ts2gql expected a union of only interfaces since first child is an interface. ` +
-            `Got a ${type.type}`);
+            `Got a ${type.type} for ${name}`);
         }
         return type.target;
       });
