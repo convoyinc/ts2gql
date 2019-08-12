@@ -25,4 +25,11 @@ describe(`ts2gql CLI`, () => {
       checkAndWriteSnapshot('basic-cli.gql', schema);
     });
   });
+
+  describe(`with @importedAs`, () => {
+    it(`generates a valid schema`, () => {
+      const schema = execSync(`EMIT_IMPORT_DIRECTIVES=yes ./bin/ts2gql ./test/fixtures/schema.ts Schema`);
+      checkAndWriteSnapshot('cli-with-importedFrom.gql', schema);
+    });
+  });
 });
