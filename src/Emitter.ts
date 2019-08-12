@@ -1,19 +1,47 @@
 import * as _ from 'lodash';
+import * as path from 'path';
 
 import * as Types from './types';
 import { ReferenceNode } from './types';
+
+export interface TSConfigSubset {
+  compilerOptions?:{
+    rootDir?:string;
+    outDir?:string;
+  };
+}
+
+export interface EmitterOptions {
+  modulesRelativeTo?:{
+    /** Base directory that modules should be considered relative to. */
+    directory:string;
+    /**
+     * If present, relative paths will follow your tsconfig's srcDir and outDir
+     * configuration as appropriate.
+     */
+    tsconfig?:TSConfigSubset;
+  };
+  emitImportedFromDirectives?:boolean;
+}
 
 // tslint:disable-next-line
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
 export default class Emitter {
   renames:{[key:string]:string} = {};
 
-  constructor(private types:Types.TypeMap) {
+  constructor(private types:Types.TypeMap, private options:EmitterOptions = {}) {
     this.types = <Types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name!));
   }
 
   emitAll(stream:NodeJS.WritableStream) {
     stream.write('\n');
+
+    if (this.options.emitImportedFromDirectives) {
+      stream.write(
+        `directive @importedFrom(module: String, exportPath: String) on ENUM\n\n`
+      );
+    }
+
     _.each(this.types, (node, name) => this.emitTopLevelNode(node, name!, stream));
   }
 
@@ -167,8 +195,15 @@ export default class Emitter {
     return result;
   }
 
-  _emitEnum(node:Types.EnumNode, name:Types.SymbolName):string {
-    return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
+  _emitEnum({ values, exportedAs }:Types.EnumNode, name:Types.SymbolName):string {
+    let directives = '';
+    if (exportedAs && this.options.emitImportedFromDirectives) {
+      const modulePath = JSON.stringify(this._importPath(exportedAs.fileName));
+      const exportPath = JSON.stringify(exportedAs.path.join('.'));
+      directives = ` @importedFrom(module: ${modulePath}, exportPath: ${exportPath})`;
+    }
+
+    return `enum ${this._name(name)}${directives} {\n${this._indent(values)}\n}`;
   }
 
   _emitExpression = (node:Types.Node):string => {
@@ -269,6 +304,40 @@ export default class Emitter {
       if (tag.description.startsWith(prefix)) return tag.description;
     }
     return null;
+  }
+
+  _importPath(fileName:string):string {
+    const { modulesRelativeTo } = this.options;
+    const withoutExtension = fileName.replace(/\.[^\\\/]+$/, '');
+    if (!modulesRelativeTo) return withoutExtension;
+
+    let relativePath = path.relative(modulesRelativeTo.directory, withoutExtension);
+    // Source files are prefixed by tsc's outDir, if configured.
+    const { tsconfig } = modulesRelativeTo;
+    if (tsconfig) {
+      relativePath = this._tsCompiledPath(relativePath, tsconfig);
+    }
+
+    return `.${path.sep}${relativePath}`;
+  }
+
+  _tsCompiledPath(relativePath:string, { compilerOptions }:TSConfigSubset) {
+    // No change if we have no custom config
+    if (!compilerOptions) return relativePath;
+    // No change for node_modules
+    if (relativePath.split(path.sep, 2)[0] === 'node_modules') return relativePath;
+
+    // Adjust for srcDir if necessary (remove it from the path),
+    if (compilerOptions.rootDir) {
+      relativePath = path.relative(compilerOptions.rootDir, relativePath)
+    }
+
+    // And prefix with outDir, if present
+    if (compilerOptions.outDir) {
+      relativePath = path.join(compilerOptions.outDir, relativePath);
+    }
+
+    return relativePath;
   }
 
 }
