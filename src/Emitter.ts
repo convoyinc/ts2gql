@@ -153,7 +153,12 @@ export default class Emitter {
     }
 
     if (node.concrete) {
-      return `type ${this._name(name)} {\n${this._indent(properties)}\n}`;
+      // If tagged with a "key" graphql tag, add the @key annotation for federation
+      let federationDecorator = '';
+      this._getDocTags(node, 'key').forEach(tag => {
+        federationDecorator += `@key(fields: "${tag.substr(4)}") `;
+      });
+      return `type ${this._name(name)} ${federationDecorator}{\n${this._indent(properties)}\n}`;
     }
 
     let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
@@ -267,6 +272,17 @@ export default class Emitter {
       if (tag.description.startsWith(prefix)) return tag.description;
     }
     return null;
+  }
+
+  // Returns ALL matching tags from the given node.
+  _getDocTags(node:Types.ComplexNode, prefix:string):String[] {
+    const matchingTags:String[] = [];
+    if (!node.documentation) return matchingTags;
+    for (const tag of node.documentation.tags) {
+      if (tag.title !== 'graphql') continue;
+      if (tag.description.startsWith(prefix)) matchingTags.push(tag.description);
+    }
+    return matchingTags;
   }
 
 }

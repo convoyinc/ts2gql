@@ -13,6 +13,29 @@ export interface Starship {
   length:number;
 }
 
+/** @graphql key name */
+export interface StarshipFederated {
+  name:string;
+  length:number;
+}
+
+/** @graphql key name id */
+export interface StarshipFederatedCompoundKey {
+  name:string;
+  id:string;
+  length:number;
+}
+
+/**
+ * @graphql key name
+ * @graphql key id
+ */
+export interface StarshipFederatedMultipleKeys {
+  name:string;
+  id:string;
+  length:number;
+}
+
 export enum Color {
   'Red',
   'Yellow',
@@ -72,6 +95,9 @@ export interface QueryRoot {
   cloudTypes():Cloud;
   ordinalTypes():Ordinal;
   quarkFlavorTypes():QuarkFlavor;
+  starshipFederated():StarshipFederated;
+  starshipFederatedCompound():StarshipFederatedCompoundKey;
+  starshipFederatedMultiple():StarshipFederatedMultipleKeys;
 }
 
 export interface MutationRoot {

@@ -127,4 +127,52 @@ describe(`Emitter`, () => {
       expect(val).to.eq(expected);
     });
   });
+
+  describe(`federation decoration`, () => {
+    it(`basic type generation`, () => {
+      const expected =
+`type Starship {
+  length: Float
+  name: String
+}`;
+      const node = loadedTypes['Starship'] as types.InterfaceNode;
+      const val = emitter._emitInterface(node, 'Starship');
+      expect(val).to.eq(expected);
+    });
+  });
+
+  it(`basic key decoration`, () => {
+    const expected =
+`type StarshipFederated @key(fields: "name") {
+  length: Float
+  name: String
+}`;
+    const node = loadedTypes['StarshipFederated'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'StarshipFederated');
+    expect(val).to.eq(expected);
+  });
+
+  it(`compound key decoration`, () => {
+    const expected =
+`type StarshipFederatedCompoundKey @key(fields: "name id") {
+  id: String
+  length: Float
+  name: String
+}`;
+    const node = loadedTypes['StarshipFederatedCompoundKey'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'StarshipFederatedCompoundKey');
+    expect(val).to.eq(expected);
+  });
+
+  it(`multiple keys decoration`, () => {
+    const expected =
+`type StarshipFederatedMultipleKeys @key(fields: "name") @key(fields: "id") {
+  id: String
+  length: Float
+  name: String
+}`;
+    const node = loadedTypes['StarshipFederatedMultipleKeys'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'StarshipFederatedMultipleKeys');
+    expect(val).to.eq(expected);
+  });
 });
