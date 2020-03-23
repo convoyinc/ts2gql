@@ -154,10 +154,9 @@ export default class Emitter {
 
     if (node.concrete) {
       // If tagged with a "key" graphql tag, add the @key annotation for federation
-      let federationDecorator = '';
-      this._getDocTags(node, 'key').forEach(tag => {
-        federationDecorator += `@key(fields: "${tag.substr(4)}") `;
-      });
+      const federationDecorator = this._getDocTags(node, 'key')
+        .map(tag => `@key(fields: "${tag.substring(4)}") `)
+        .join('');
       return `type ${this._name(name)} ${federationDecorator}{\n${this._indent(properties)}\n}`;
     }
 
@@ -275,8 +274,8 @@ export default class Emitter {
   }
 
   // Returns ALL matching tags from the given node.
-  _getDocTags(node:Types.ComplexNode, prefix:string):String[] {
-    const matchingTags:String[] = [];
+  _getDocTags(node:Types.ComplexNode, prefix:string):string[] {
+    const matchingTags:string[] = [];
     if (!node.documentation) return matchingTags;
     for (const tag of node.documentation.tags) {
       if (tag.title !== 'graphql') continue;
