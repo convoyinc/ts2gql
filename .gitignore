@@ -7,7 +7,6 @@
 # Node
 /node_modules/
 npm-debug.log*
-yarn.lock
 npm-shrinkwrap.json
 package-lock.json
 
