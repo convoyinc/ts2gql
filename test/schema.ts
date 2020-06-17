@@ -36,6 +36,41 @@ export interface StarshipFederatedMultipleKeys {
   length:number;
 }
 
+export interface CostDecorationField {
+  bar:string[];
+  /** @graphql cost (useMultipliers: false, complexity: 2) */
+  baz:number;
+}
+
+export interface CostDecorationMultipleFields {
+  /** @graphql cost (useMultipliers: false, complexity: 2) */
+  bar:string[];
+  /** @graphql cost (useMultipliers: false, complexity: 2) */
+  baz:number;
+}
+
+/** @graphql cost (useMultipliers: false, complexity: 2) */
+export interface CostDecorationType {
+  bar:string[];
+  baz:number;
+}
+
+/** @graphql key name */
+export interface CostDecorationFieldWithKey {
+  bar:string[];
+  /** @graphql cost (useMultipliers: false, complexity: 2) */
+  baz:number;
+}
+
+/**
+ * @graphql cost (useMultipliers: false, complexity: 2)
+ * @graphql key name
+ */
+export interface CostDecorationTypeWithKey {
+  bar:string[];
+  baz:number;
+}
+
 export enum Color {
   'Red',
   'Yellow',
@@ -98,6 +133,11 @@ export interface QueryRoot {
   starshipFederated():StarshipFederated;
   starshipFederatedCompound():StarshipFederatedCompoundKey;
   starshipFederatedMultiple():StarshipFederatedMultipleKeys;
+  costDecorationField():CostDecorationField;
+  costDecorationMultipleFields():CostDecorationMultipleFields;
+  costDecorationType():CostDecorationType;
+  costDecorationFieldWithKey():CostDecorationFieldWithKey;
+  costDecorationTypeWithKey():CostDecorationTypeWithKey;
 }
 
 export interface MutationRoot {

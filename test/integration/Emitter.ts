@@ -175,4 +175,59 @@ describe(`Emitter`, () => {
     const val = emitter._emitInterface(node, 'StarshipFederatedMultipleKeys');
     expect(val).to.eq(expected);
   });
+
+  it(`cost decoration field`, () => {
+    const expected =
+`type CostDecorationField {
+  bar: [String]
+  baz: Float @cost(useMultipliers: false, complexity: 2)
+}`;
+    const node = loadedTypes['CostDecorationField'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'CostDecorationField');
+    expect(val).to.eq(expected);
+  });
+
+  it(`cost decoration multiple fields`, () => {
+    const expected =
+`type CostDecorationMultipleFields {
+  bar: [String] @cost(useMultipliers: false, complexity: 2)
+  baz: Float @cost(useMultipliers: false, complexity: 2)
+}`;
+    const node = loadedTypes['CostDecorationMultipleFields'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'CostDecorationMultipleFields');
+    expect(val).to.eq(expected);
+  });
+
+  it(`cost decoration type`, () => {
+    const expected =
+`type CostDecorationType @cost(useMultipliers: false, complexity: 2) {
+  bar: [String]
+  baz: Float
+}`;
+    const node = loadedTypes['CostDecorationType'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'CostDecorationType');
+    expect(val).to.eq(expected);
+  });
+
+  it(`cost decoration field with key`, () => {
+    const expected =
+`type CostDecorationFieldWithKey @key(fields: "name") {
+  bar: [String]
+  baz: Float @cost(useMultipliers: false, complexity: 2)
+}`;
+    const node = loadedTypes['CostDecorationFieldWithKey'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'CostDecorationFieldWithKey');
+    expect(val).to.eq(expected);
+  });
+
+  it(`cost decoration type with key`, () => {
+    const expected =
+`type CostDecorationTypeWithKey @key(fields: "name") @cost(useMultipliers: false, complexity: 2) {
+  bar: [String]
+  baz: Float
+}`;
+    const node = loadedTypes['CostDecorationTypeWithKey'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'CostDecorationTypeWithKey');
+    expect(val).to.eq(expected);
+  });
 });
