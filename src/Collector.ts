@@ -140,6 +140,7 @@ export default class Collector {
     return {
       type: 'method',
       name: node.name.getText(),
+      documentation: util.documentationForNode(node),
       parameters,
       returns: this._walkNode(node.type!),
     };
@@ -149,6 +150,7 @@ export default class Collector {
     return {
       type: 'property',
       name: node.name.getText(),
+      documentation: util.documentationForNode(node),
       signature: this._walkNode(node.type!),
     };
   }

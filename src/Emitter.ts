@@ -138,9 +138,11 @@ export default class Emitter {
           parameters = `(${this._emitExpression(argType)})`;
         }
         const returnType = this._emitExpression(member.returns);
-        return `${this._name(member.name)}${parameters}: ${returnType}`;
+        const costDecorator = this._costHelper(member);
+        return `${this._name(member.name)}${parameters}: ${returnType}${costDecorator}`;
       } else if (member.type === 'property') {
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+        const costDecorator = this._costHelper(member);
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}${costDecorator}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -155,9 +157,10 @@ export default class Emitter {
     if (node.concrete) {
       // If tagged with a "key" graphql tag, add the @key annotation for federation
       const federationDecorator = this._getDocTags(node, 'key')
-        .map(tag => `@key(fields: "${tag.substring(4)}") `)
+        .map(tag => ` @key(fields: "${tag.substring(4)}")`)
         .join('');
-      return `type ${this._name(name)} ${federationDecorator}{\n${this._indent(properties)}\n}`;
+      const costDecorator = this._costHelper(node);
+      return `type ${this._name(name)}${federationDecorator}${costDecorator} {\n${this._indent(properties)}\n}`;
     }
 
     let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
@@ -284,4 +287,11 @@ export default class Emitter {
     return matchingTags;
   }
 
+  _costHelper(node:Types.ComplexNode) {
+    const costExists = this._getDocTag(node, 'cost');
+    if (costExists) {
+      return ` @cost${costExists.substring(5)}`;
+    }
+    return '';
+  }
 }
