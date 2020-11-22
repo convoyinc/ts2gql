@@ -4,4 +4,4 @@ set -e
 source ./scripts/include/node.sh
 
 npm run clean
-tsc "${@}"
+tsc-watch "${@}"

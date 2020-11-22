@@ -1,4 +1,5 @@
 import * as _ from 'lodash';
+import { inherits } from 'util';
 
 import * as Types from './types';
 import { ReferenceNode } from './types';
@@ -6,18 +7,18 @@ import { ReferenceNode } from './types';
 // tslint:disable-next-line
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
 export default class Emitter {
-  renames:{[key:string]:string} = {};
+  renames: { [key: string]: string } = {};
 
-  constructor(private types:Types.TypeMap) {
+  constructor(private types: Types.TypeMap) {
     this.types = <Types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name!));
   }
 
-  emitAll(stream:NodeJS.WritableStream) {
+  emitAll(stream: NodeJS.WritableStream) {
     stream.write('\n');
     _.each(this.types, (node, name) => this.emitTopLevelNode(node, name!, stream));
   }
 
-  emitTopLevelNode(node:Types.Node, name:Types.SymbolName, stream:NodeJS.WritableStream) {
+  emitTopLevelNode(node: Types.Node, name: Types.SymbolName, stream: NodeJS.WritableStream) {
     let content;
     if (node.type === 'alias') {
       content = this._emitAlias(node, name);
@@ -33,7 +34,7 @@ export default class Emitter {
 
   // Preprocessing
 
-  _preprocessNode(node:Types.Node, name:Types.SymbolName):boolean {
+  _preprocessNode(node: Types.Node, name: Types.SymbolName): boolean {
     if (node.type === 'alias' && node.target.type === 'reference') {
       const referencedNode = this.types[node.target.target];
       if (this._isPrimitive(referencedNode) || referencedNode.type === 'enum') {
@@ -50,7 +51,7 @@ export default class Emitter {
 
   // Nodes
 
-  _emitAlias(node:Types.AliasNode, name:Types.SymbolName):string {
+  _emitAlias(node: Types.AliasNode, name: Types.SymbolName): string {
     if (this._isPrimitive(node.target)) {
       return `scalar ${this._name(name)}`;
     } else if (node.target.type === 'reference') {
@@ -62,9 +63,9 @@ export default class Emitter {
     }
   }
 
-  _emitUnion(node:Types.UnionNode, name:Types.SymbolName):string {
+  _emitUnion(node: Types.UnionNode, name: Types.SymbolName): string {
     if (_.every(node.types, entry => entry.type === 'string literal')) {
-      const nodeValues = node.types.map((type:Types.StringLiteralNode) => type.value);
+      const nodeValues = node.types.map((type: Types.StringLiteralNode) => type.value);
       return this._emitEnum({
         type: 'enum',
         values: _.uniq(nodeValues),
@@ -80,7 +81,7 @@ export default class Emitter {
     const firstChild = node.types[0] as ReferenceNode;
     const firstChildType = this.types[firstChild.target];
     if (firstChildType.type === 'enum') {
-      const nodeTypes = node.types.map((type:ReferenceNode) => {
+      const nodeTypes = node.types.map((type: ReferenceNode) => {
         const subNode = this.types[type.target];
         if (subNode.type !== 'enum') {
           throw new Error(`ts2gql expected a union of only enums since first child is an enum. Got a ${type.type}`);
@@ -92,7 +93,7 @@ export default class Emitter {
         values: _.uniq(_.flatten(nodeTypes)),
       }, this._name(name));
     } else if (firstChildType.type === 'interface') {
-      const nodeNames = node.types.map((type:ReferenceNode) => {
+      const nodeNames = node.types.map((type: ReferenceNode) => {
         const subNode = this.types[type.target];
         if (subNode.type !== 'interface') {
           throw new Error(`ts2gql expected a union of only interfaces since first child is an interface. ` +
@@ -106,7 +107,7 @@ export default class Emitter {
     }
   }
 
-  _emitInterface(node:Types.InterfaceNode, name:Types.SymbolName):string {
+  _emitInterface(node: Types.InterfaceNode, name: Types.SymbolName): string {
     // GraphQL expects denormalized type interfaces
     const members = <Types.Node[]>_(this._transitiveInterfaces(node))
       .map(i => i.members)
@@ -121,7 +122,7 @@ export default class Emitter {
       members.push({
         type: 'property',
         name: '_placeholder',
-        signature: {type: 'boolean'},
+        signature: { type: 'boolean' },
       });
     }
 
@@ -166,17 +167,17 @@ export default class Emitter {
     let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
     const fragmentDeclaration = this._getDocTag(node, 'fragment');
     if (fragmentDeclaration) {
-      result = `${result}\n\n${fragmentDeclaration} {\n${this._indent(members.map((m:any) => m.name))}\n}`;
+      result = `${result}\n\n${fragmentDeclaration} {\n${this._indent(members.map((m: any) => m.name))}\n}`;
     }
 
     return result;
   }
 
-  _emitEnum(node:Types.EnumNode, name:Types.SymbolName):string {
+  _emitEnum(node: Types.EnumNode, name: Types.SymbolName): string {
     return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
   }
 
-  _emitExpression = (node:Types.Node):string => {
+  _emitExpression = (node: Types.Node): string => {
     if (!node) {
       return '';
     } else if (node.type === 'string') {
@@ -191,7 +192,7 @@ export default class Emitter {
       return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
     } else if (node.type === 'literal object' || node.type === 'interface') {
       return _(this._collectMembers(node))
-        .map((member:Types.PropertyNode) => {
+        .map((member: Types.PropertyNode) => {
           return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
         })
         .join(', ');
@@ -200,13 +201,13 @@ export default class Emitter {
     }
   }
 
-  _collectMembers = (node:Types.InterfaceNode|Types.LiteralObjectNode):Types.PropertyNode[] => {
-    let members:Types.Node[] = [];
+  _collectMembers = (node: Types.InterfaceNode | Types.LiteralObjectNode): Types.PropertyNode[] => {
+    let members: Types.Node[] = [];
     if (node.type === 'literal object') {
       members = node.members;
     } else {
       const seenProps = new Set<Types.SymbolName>();
-      let interfaceNode:Types.InterfaceNode|null;
+      let interfaceNode: Types.InterfaceNode | null;
       interfaceNode = node;
 
       // loop through this interface and any super-interfaces
@@ -219,7 +220,7 @@ export default class Emitter {
         if (interfaceNode.inherits.length > 1) {
           throw new Error(`No support for multiple inheritence: ${JSON.stringify(interfaceNode.inherits)}`);
         } else if (interfaceNode.inherits.length === 1) {
-          const supertype:Types.Node = this.types[interfaceNode.inherits[0]];
+          const supertype: Types.Node = this.types[interfaceNode.inherits[0]];
           if (supertype.type !== 'interface') {
             throw new Error(`Expected supertype to be an interface node: ${supertype}`);
           }
@@ -240,34 +241,58 @@ export default class Emitter {
 
   // Utility
 
-  _name = (name:Types.SymbolName):string => {
+  _name = (name: Types.SymbolName): string => {
     name = this.renames[name] || name;
     return name.replace(/\W/g, '_');
   }
 
-  _isPrimitive(node:Types.Node):boolean {
+  _isPrimitive(node: Types.Node): boolean {
     return node.type === 'string' || node.type === 'number' || node.type === 'boolean' || node.type === 'any';
   }
 
-  _indent(content:string|string[]):string {
+  _indent(content: string | string[]): string {
     if (!_.isArray(content)) content = content.split('\n');
     return content.map(s => `  ${s}`).join('\n');
   }
 
-  _transitiveInterfaces(node:Types.InterfaceNode):Types.InterfaceNode[] {
+  _transitiveInterfaces(node: Types.InterfaceNode): Types.InterfaceNode[] {
     let interfaces = [node];
-    for (const name of node.inherits) {
-      const inherited = <Types.InterfaceNode>this.types[name];
+    for (const inherit of node.inherits) {
+      const inherited = { ...<Types.InterfaceNode>this.types[inherit.name] };
+      if (inherited.typeParameters.length === inherit.referenceNodes.length) {
+        // interface List<T> { item: T }
+        // interface ComplexList<T> extends List<T> { item2: T }
+
+        // interface SimpleStringList extends List<string> {}
+        // interface SimpleNumberList extends List<number> {}
+        // interface SimpleStringListList extends List<SimpleStringList> {}
+        // interface ComplexStringList extends ComplextList<string> {}
+
+        // for each of the type parameters in the inherited clause
+        // replace all the type values with the reference nodes
+        // add that to the interfaces
+        inherited.typeParameters.forEach((t, index) => {
+
+          const referenceNode = inherit.referenceNodes[index];
+          inherited.members.filter(m => m.type === 'genericPropertyNode' && m.signature === t).forEach(m => {
+            m.type = 'property';
+            m.signature = { ...referenceNode };
+          });
+        })
+        console.log('foo');
+      } else {
+        // throw
+      }
       interfaces = interfaces.concat(this._transitiveInterfaces(inherited));
     }
     return _.uniq(interfaces);
   }
 
-  _hasDocTag(node:Types.ComplexNode, prefix:string):boolean {
+  _hasDocTag(node: Types.ComplexNode, prefix: string): boolean {
     return !!this._getDocTag(node, prefix);
   }
 
-  _getDocTag(node:Types.ComplexNode, prefix:string):string|null {
+  _getDocTag(node: Types.ComplexNode, prefix: string): string | null {
     if (!node.documentation) return null;
     for (const tag of node.documentation.tags) {
       if (tag.title !== 'graphql') continue;
@@ -277,8 +302,8 @@ export default class Emitter {
   }
 
   // Returns ALL matching tags from the given node.
-  _getDocTags(node:Types.ComplexNode, prefix:string):string[] {
-    const matchingTags:string[] = [];
+  _getDocTags(node: Types.ComplexNode, prefix: string): string[] {
+    const matchingTags: string[] = [];
     if (!node.documentation) return matchingTags;
     for (const tag of node.documentation.tags) {
       if (tag.title !== 'graphql') continue;
@@ -287,7 +312,7 @@ export default class Emitter {
     return matchingTags;
   }
 
-  _costHelper(node:Types.ComplexNode) {
+  _costHelper(node: Types.ComplexNode) {
     const costExists = this._getDocTag(node, 'cost');
     if (costExists) {
       return ` @cost${costExists.substring(5)}`;

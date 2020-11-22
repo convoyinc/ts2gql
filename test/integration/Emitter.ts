@@ -10,7 +10,31 @@ describe(`Emitter`, () => {
   beforeEach(() => {
     loadedTypes = ts2gql.load('./test/schema.ts', ['Schema']);
     emitter = new Emitter(loadedTypes);
+
   });
+
+  describe.only(`does some stuff`, () => {
+    it.skip('Interface that extends generic with simple type works', () => {
+      const expected =
+`type StringListResult {
+  item: String
+}`
+      const genericNode = loadedTypes['StringList'] as types.InterfaceNode;
+      const val = emitter._emitInterface(genericNode, 'StringListResult');
+      expect(val).to.eq(expected);
+    });
+
+    it('Interface that extends generic with complex type works', () => {
+      const expected =
+`type CatItemResult {
+  ownerCat: Cat
+  item: Yarn
+}`
+      const genericNode = loadedTypes['CatItem'] as types.InterfaceNode;
+      const val = emitter._emitInterface(genericNode, 'CatItemResult');
+      expect(val).to.eq(expected);
+    })
+  })
 
   describe(`_emitUnion`, () => {
     it(`emits GQL type union for union of interface types`, () => {

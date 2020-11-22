@@ -1,0 +1,111 @@
+<testsuites name="jest tests">
+  <testsuite name="Emitter" tests="21" errors="0" failures="1" skipped="20" timestamp="2020-11-22T23:36:44" time="8.164">
+    <testcase classname="Emitter does some stuff Interface that extends generic with simple type works" name="Emitter does some stuff Interface that extends generic with simple type works" time="0.001">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter does some stuff Interface that extends generic with complex type works" name="Emitter does some stuff Interface that extends generic with complex type works" time="4.967">
+      <failure>TypeError: Cannot read property &apos;flags&apos; of undefined
+    at Collector._expandSymbol (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:418:23)
+    at Collector._symbolForNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:403:21)
+    at Collector._walkTypeReferenceNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:306:46)
+    at Collector._walkNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:48:32)
+    at Collector._walkMethodSignature (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:293:27)
+    at Collector._walkNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:42:32)
+    at /Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:262:38
+    at Array.map (&lt;anonymous&gt;)
+    at /Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:243:39
+    at Collector._addType (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:397:20)
+    at Collector._walkInterfaceDeclaration (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:183:21)
+    at Collector._walkNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:39:32)
+    at /Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:106:79
+    at arrayMap (/Users/ajawaid/Documents/workspace/ts2gql/node_modules/lodash/lodash.js:639:23)
+    at Function.map (/Users/ajawaid/Documents/workspace/ts2gql/node_modules/lodash/lodash.js:9554:14)
+    at Collector._walkSymbol (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:106:22)
+    at Collector._referenceForSymbol (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:424:14)
+    at Collector._walkTypeReferenceNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:306:21)
+    at Collector._walkNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:48:32)
+    at Collector._walkPropertySignature (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:302:29)
+    at Collector._walkNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:45:32)
+    at /Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:262:38
+    at Array.map (&lt;anonymous&gt;)
+    at /Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:243:39
+    at Collector._addType (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:397:20)
+    at Collector._walkInterfaceDeclaration (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:183:21)
+    at Collector._walkNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:39:32)
+    at Collector.addRootNode (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/Collector.js:137:14)
+    at Object.load (/Users/ajawaid/Documents/workspace/ts2gql/dist/src/index.js:46:23)
+    at Object.&lt;anonymous&gt; (/Users/ajawaid/Documents/workspace/ts2gql/dist/test/integration/Emitter.js:9:30)
+    at Object.asyncFn (/Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/jasmine_async.js:122:61)
+    at /Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/queue_runner.js:46:12
+    at new Promise (&lt;anonymous&gt;)
+    at mapper (/Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/queue_runner.js:34:499)
+    at /Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/queue_runner.js:74:39
+    at processTicksAndRejections (internal/process/task_queues.js:93:5)</failure>
+      <failure>TypeError: Cannot read property &apos;CatItem&apos; of undefined
+    at Object.&lt;anonymous&gt; (/Users/ajawaid/Documents/workspace/ts2gql/dist/test/integration/Emitter.js:21:42)
+    at Object.asyncFn (/Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/jasmine_async.js:124:345)
+    at /Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/queue_runner.js:46:12
+    at new Promise (&lt;anonymous&gt;)
+    at mapper (/Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/queue_runner.js:34:499)
+    at /Users/ajawaid/Documents/workspace/ts2gql/node_modules/jest-jasmine2/build/queue_runner.js:74:39
+    at processTicksAndRejections (internal/process/task_queues.js:93:5)</failure>
+    </testcase>
+    <testcase classname="Emitter _emitUnion emits GQL type union for union of interface types" name="Emitter _emitUnion emits GQL type union for union of interface types" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitUnion emits GQL enum union for union of enum types" name="Emitter _emitUnion emits GQL enum union for union of enum types" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitUnion emits GQL type enum union for a union type of strings" name="Emitter _emitUnion emits GQL type enum union for a union type of strings" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitUnion throws error if union combines interfaces with other node types" name="Emitter _emitUnion throws error if union combines interfaces with other node types" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitUnion throws error if union combines enums with other node types" name="Emitter _emitUnion throws error if union combines enums with other node types" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitUnion throws error if union contains non-reference types" name="Emitter _emitUnion throws error if union contains non-reference types" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitEnum emits GQL type enum for string enum with single quotes" name="Emitter _emitEnum emits GQL type enum for string enum with single quotes" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitEnum emits GQL type enum for string enum with double quotes" name="Emitter _emitEnum emits GQL type enum for string enum with double quotes" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitEnum emits GQL type enum for enum with &apos;any&apos; typed initializers" name="Emitter _emitEnum emits GQL type enum for enum with &apos;any&apos; typed initializers" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter _emitEnum emits GQL type enum for enum with numeric literal initializers" name="Emitter _emitEnum emits GQL type enum for enum with numeric literal initializers" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter federation decoration basic type generation" name="Emitter federation decoration basic type generation" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter basic key decoration" name="Emitter basic key decoration" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter compound key decoration" name="Emitter compound key decoration" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter multiple keys decoration" name="Emitter multiple keys decoration" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter cost decoration field" name="Emitter cost decoration field" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter cost decoration multiple fields" name="Emitter cost decoration multiple fields" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter cost decoration type" name="Emitter cost decoration type" time="0.001">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter cost decoration field with key" name="Emitter cost decoration field with key" time="0">
+      <skipped/>
+    </testcase>
+    <testcase classname="Emitter cost decoration type with key" name="Emitter cost decoration type with key" time="0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+</testsuites>
