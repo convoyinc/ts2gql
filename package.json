@@ -16,6 +16,7 @@
   "scripts": {
     "clean": "./scripts/clean.sh",
     "compile": "./scripts/compile.sh",
+    "compile-watch": "./scripts/compile-watch.sh",
     "prepublish": "./scripts/prepublish.sh",
     "release": "./scripts/release.sh",
     "start": "./scripts/start.sh",
@@ -46,6 +47,7 @@
     "jest-junit": "3.0.0",
     "sinon": "3.2.1",
     "sinon-chai": "2.13.0",
+    "tsc-watch": "^4.2.9",
     "tslint": "5.8.0",
     "tslint-no-unused-expression-chai": "0.0.3",
     "typescript": "2.6.2"

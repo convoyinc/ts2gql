@@ -10,7 +10,164 @@ describe(`Emitter`, () => {
   beforeEach(() => {
     loadedTypes = ts2gql.load('./test/schema.ts', ['Schema']);
     emitter = new Emitter(loadedTypes);
+
   });
+
+  describe(`generics`, () => {
+    describe('simple generics', () => {
+      it('extending a generic with a string type results in the correct interface', () => {
+const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  object: String
+  ownProp: Boolean
+}`
+const itemNode = loadedTypes['StringItem'] as types.InterfaceNode;
+expect(itemNode).to.exist;
+const result = emitter._emitInterface(itemNode, 'Result');
+expect(result).to.eq(expected);
+      })
+
+      it('extending a generic with a number type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  object: Float
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['NumberItem'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+      it('extending a generic with a complex type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  object: StringItem
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['ComplexStringItem'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+      it('extending a generic with a string array type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  object: [String]
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['StringArrayItem'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+      it('extending a generic with a number array type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  object: [Float]
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['NumberArrayItem'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+    })
+
+    describe('array generics', () => {
+      it('extending a array generic with a string type results in the correct interface', () => {
+const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  objects: [String]
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['StringItemList'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+      it('extending a array generic with a number type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  objects: [Float]
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['NumberItemList'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+
+      it('extending a array generic with a complex type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  extraNonGenericProp: Boolean
+  objects: [StringItemList]
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['ComplexStringItemList'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+    })
+
+    describe('multiple generics', () => {
+      it('extending a array and simple generic with a string and number type results in the correct interface', () => {
+const expected = 
+`type Result {
+  arrayObjectU: [Float]
+  extraNonGenericProp: Boolean
+  objectT: String
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['StringObjectNumberArray'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+      it('extending a array and simple generic with a number and string type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  arrayObjectU: [String]
+  extraNonGenericProp: Boolean
+  objectT: Float
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['NumberObjectStringArray'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+
+
+      it('extending a array and simple generic with a complex type and number type results in the correct interface', () => {
+        const expected = 
+`type Result {
+  arrayObjectU: [Float]
+  extraNonGenericProp: Boolean
+  objectT: StringItem
+  ownProp: Boolean
+}`
+        const itemNode = loadedTypes['StringItemObjectNumberArray'] as types.InterfaceNode;
+        expect(itemNode).to.exist;
+        const result = emitter._emitInterface(itemNode, 'Result');
+        expect(result).to.eq(expected);
+      })
+    })
+  })
 
   describe(`_emitUnion`, () => {
     it(`emits GQL type union for union of interface types`, () => {

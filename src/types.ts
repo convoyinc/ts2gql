@@ -9,7 +9,8 @@ export interface ComplexNode {
 export interface InterfaceNode extends ComplexNode {
   type:'interface';
   members:NamedNode[];
-  inherits:SymbolName[];
+  typeParameters: SymbolName[];
+  inherits:ExpressionWithTypeNode[];
   concrete?:boolean; // Whether the type is directly used (returned).
 }
 
@@ -28,6 +29,7 @@ export interface ArrayNode extends ComplexNode {
 export interface ReferenceNode extends ComplexNode {
   type:'reference';
   target:SymbolName;
+  referenceNodes: Node[];
 }
 
 export interface PropertyNode extends ComplexNode {
@@ -77,6 +79,17 @@ export interface AnyNode {
   type:'any';
 }
 
+export interface ExpressionWithTypeNode extends ComplexNode {
+  type: 'expressionWithTypeNode';
+  name: SymbolName;
+  referenceNodes: ReferenceNode[];
+}
+
+export interface GenericPropertyNode {
+  type: 'genericPropertyNode',
+  signature: string,
+}
+
 export type Node =
   InterfaceNode |
   MethodNode |
@@ -91,7 +104,9 @@ export type Node =
   StringNode |
   NumberNode |
   BooleanNode |
-  AnyNode;
+  AnyNode | 
+  ExpressionWithTypeNode |
+  GenericPropertyNode;
 
 export type NamedNode = MethodNode | PropertyNode;
 

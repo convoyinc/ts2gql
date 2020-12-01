@@ -119,6 +119,63 @@ export type UnionOfEnumAndOtherTypes = Color | UnionOfInterfaceTypes;
 
 export type UnionOfNonReferenceTypes = boolean | string;
 
+export interface Item<T> {
+  object: T;
+  extraNonGenericProp: boolean;
+}
+
+export interface ItemList<T> {
+  objects: T[];
+  extraNonGenericProp: boolean;
+}
+
+export interface MultipleGenerics<T, U> {
+  objectT: T;
+  arrayObjectU: U[];
+  extraNonGenericProp: boolean;
+}
+
+export interface StringItem extends Item<string> {
+  ownProp: boolean;
+}
+export interface NumberItem extends Item<number> {
+  ownProp: boolean;
+}
+
+export interface StringArrayItem extends Item<string[]>{
+  ownProp: boolean;
+}
+
+export interface NumberArrayItem extends Item<number[]>{
+  ownProp: boolean;
+}
+export interface ComplexStringItem extends Item<StringItem> {
+  ownProp: boolean;
+}
+
+export interface StringItemList extends ItemList<string> {
+  ownProp: boolean;
+}
+export interface NumberItemList extends ItemList<number> {
+  ownProp: boolean;
+}
+
+export interface ComplexStringItemList extends ItemList<StringItemList> {
+  ownProp: boolean;
+}
+
+export interface StringObjectNumberArray extends MultipleGenerics<string, number> {
+  ownProp: boolean;
+}
+
+export interface NumberObjectStringArray extends MultipleGenerics<number, string> {
+  ownProp: boolean;
+}
+
+export interface StringItemObjectNumberArray extends MultipleGenerics<StringItem, number> {
+  ownProp: boolean;
+}
+
 export interface QueryRoot {
   unionOfInterfaceTypes():UnionOfInterfaceTypes[];
   unionOfEnumTypes():UnionOfEnumTypes[];
@@ -138,6 +195,19 @@ export interface QueryRoot {
   costDecorationType():CostDecorationType;
   costDecorationFieldWithKey():CostDecorationFieldWithKey;
   costDecorationTypeWithKey():CostDecorationTypeWithKey;
+
+  // Generics
+  stringItem(): StringItem;
+  numberItem(): NumberItem;
+  complexStringItem(): ComplexStringItem;
+  stringArrayItem(): StringArrayItem;
+  numberArrayItem(): NumberArrayItem;
+  stringItemList(): StringItemList;
+  numberItemList(): NumberItemList;
+  complexStringItemList(): ComplexStringItemList;
+  stringObjectNumberArray(): StringObjectNumberArray;
+  numberObjectStringArray(): NumberObjectStringArray;
+  stringItemObjectNumberArray(): StringItemObjectNumberArray;
 }
 
 export interface MutationRoot {

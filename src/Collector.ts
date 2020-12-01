@@ -12,23 +12,23 @@ const TypeFlags = typescript.TypeFlags;
  * referenced types.
  */
 export default class Collector {
-  types:types.TypeMap = {
-    Date: {type: 'alias', target: {type: 'string'}},
+  types: types.TypeMap = {
+    Date: { type: 'alias', target: { type: 'string' } },
   };
-  private checker:typescript.TypeChecker;
-  private nodeMap:Map<typescript.Node, types.Node> = new Map();
+  private checker: typescript.TypeChecker;
+  private nodeMap: Map<typescript.Node, types.Node> = new Map();
 
-  constructor(program:typescript.Program) {
+  constructor(program: typescript.Program) {
     this.checker = program.getTypeChecker();
   }
 
-  addRootNode(node:typescript.InterfaceDeclaration):void {
+  addRootNode(node: typescript.InterfaceDeclaration): void {
     this._walkNode(node);
     const simpleNode = <types.InterfaceNode>this.types[this._nameForSymbol(this._symbolForNode(node.name))];
     simpleNode.concrete = true;
   }
 
-  mergeOverrides(node:typescript.InterfaceDeclaration, name:types.SymbolName):void {
+  mergeOverrides(node: typescript.InterfaceDeclaration, name: types.SymbolName): void {
     const existing = <types.InterfaceNode>this.types[name];
     if (!existing) {
       throw new Error(`Cannot override "${name}" - it was never included`);
@@ -43,15 +43,15 @@ export default class Collector {
 
   // Node Walking
 
-  _walkNode = (node:typescript.Node):types.Node => {
+  _walkNode = (node: typescript.Node): types.Node => {
     // Reentrant node walking.
     if (this.nodeMap.has(node)) {
       return this.nodeMap.get(node) as types.Node;
     }
-    const nodeReference:types.Node = <types.Node>{};
+    const nodeReference: types.Node = <types.Node>{};
     this.nodeMap.set(node, nodeReference);
 
-    let result:types.Node|null = null;
+    let result: types.Node | null = null;
     if (node.kind === SyntaxKind.InterfaceDeclaration) {
       result = this._walkInterfaceDeclaration(<typescript.InterfaceDeclaration>node);
     } else if (node.kind === SyntaxKind.MethodSignature) {
@@ -76,17 +76,21 @@ export default class Collector {
         value: _.trim((<typescript.LiteralTypeNode>node).literal.getText(), "'\""),
       };
     } else if (node.kind === SyntaxKind.StringKeyword) {
-      result = {type: 'string'};
+      result = { type: 'string' };
     } else if (node.kind === SyntaxKind.NumberKeyword) {
-      result = {type: 'number'};
+      result = { type: 'number' };
     } else if (node.kind === SyntaxKind.BooleanKeyword) {
-      result = {type: 'boolean'};
+      result = { type: 'boolean' };
     } else if (node.kind === SyntaxKind.AnyKeyword) {
       result = { type: 'any' };
     } else if (node.kind === SyntaxKind.ModuleDeclaration) {
       // Nada.
     } else if (node.kind === SyntaxKind.VariableDeclaration) {
       // Nada.
+    } else if (node.kind === SyntaxKind.TypeParameter) {
+      // Nada. Included in handling interfaces
+    } else if (node.kind === SyntaxKind.ExpressionWithTypeArguments) {
+      result = this._walkExpressionWithTypeArguments(<typescript.ExpressionWithTypeArguments>node);
     } else {
       console.error(node);
       console.error(node.getSourceFile().fileName);
@@ -99,39 +103,88 @@ export default class Collector {
     return nodeReference;
   }
 
-  _walkSymbol = (symbol:typescript.Symbol):types.Node[] => {
+  _walkSymbol = (symbol: typescript.Symbol): types.Node[] => {
     return _.map(symbol.getDeclarations(), d => this._walkNode(d));
   }
 
-  _walkInterfaceDeclaration(node:typescript.InterfaceDeclaration):types.Node {
+  _walkExpressionWithTypeArguments(node: typescript.ExpressionWithTypeArguments): types.Node {
+
+    const referenceNodes = [];
+    if (node.typeArguments) {
+      for (const typeArg of node.typeArguments) {
+        referenceNodes.push(this._walkNode(typeArg) as types.ReferenceNode);
+      }
+    }
+
+    return {
+      type: 'expressionWithTypeNode',
+      name: node.expression.getText(),
+      referenceNodes,
+    }
+  }
+
+  _walkInterfaceDeclaration(node: typescript.InterfaceDeclaration): types.Node {
     // TODO: How can we determine for sure that this is the global date?
     if (node.name.text === 'Date') {
-      return {type: 'reference', target: 'Date'};
+      return { type: 'reference', target: 'Date', referenceNodes: [] };
     }
 
     return this._addType(node, () => {
       const inherits = [];
+      const typeParameters: string[] = [];
       if (node.heritageClauses) {
         for (const clause of node.heritageClauses) {
           for (const type of clause.types) {
             const symbol = this._symbolForNode(type.expression);
             this._walkSymbol(symbol);
-            inherits.push(this._nameForSymbol(symbol));
+            const typeRef = this._walkNode(type);
+
+            if (typeRef.type === 'expressionWithTypeNode' && typeRef.referenceNodes.some(r => r.type === 'reference' && r.referenceNodes.length > 0)) {
+              console.error(type);
+              console.error(type.getSourceFile().fileName);
+              throw new Error(`Generic inheritance cannot have another generic. Try using a named type instead. ${node.getText()}`);
+            }
+            // get the symbol + typeref. if it's
+            inherits.push(typeRef as types.ExpressionWithTypeNode);
+          }
+        }
+      }
+
+      if (node.typeParameters) {
+        for (const clause of node.typeParameters) {
+          const type = this.checker.getTypeAtLocation(clause);
+          const symbol = type.getSymbol();
+          if (symbol) {
+            typeParameters.push(symbol!.name);
           }
         }
       }
 
       return {
         type: 'interface',
-        members: <types.NamedNode[]>node.members.map(this._walkNode),
+        members: <types.NamedNode[]>node.members.map(m => {
+          // members cannot be generic. they need to be named
+          const propertySignature = m as typescript.PropertySignature;
+          const type = propertySignature.type;
+          if (type && typescript.isTypeReferenceNode(type)) {
+            if (type.typeArguments && type.typeArguments.length > 0) {
+              console.error(type);
+              console.error(type.getSourceFile().fileName);
+              throw new Error(`Property cannot be generic for ${node.getText()}`);
+            }
+          }
+
+          return this._walkNode(m);
+        }),
         inherits,
+        typeParameters
       };
     });
   }
 
-  _walkMethodSignature(node:typescript.MethodSignature):types.Node {
+  _walkMethodSignature(node: typescript.MethodSignature): types.Node {
     const signature = this.checker.getSignatureFromDeclaration(node);
-    const parameters:types.TypeMap = {};
+    const parameters: types.TypeMap = {};
     for (const parameter of signature!.getParameters()) {
       const parameterNode = <typescript.ParameterDeclaration>parameter.valueDeclaration;
       parameters[parameter.getName()] = this._walkNode(parameterNode.type!);
@@ -146,7 +199,7 @@ export default class Collector {
     };
   }
 
-  _walkPropertySignature(node:typescript.PropertySignature):types.Node {
+  _walkPropertySignature(node: typescript.PropertySignature): types.Node {
     return {
       type: 'property',
       name: node.name.getText(),
@@ -155,18 +208,25 @@ export default class Collector {
     };
   }
 
-  _walkTypeReferenceNode(node:typescript.TypeReferenceNode):types.Node {
-    return this._referenceForSymbol(this._symbolForNode(node.typeName));
+  _walkTypeReferenceNode(node: typescript.TypeReferenceNode): types.Node {
+    const symbol = this._symbolForNode(node.typeName);
+    if (symbol.flags === typescript.SymbolFlags.TypeParameter) {
+      return {
+        type: 'genericPropertyNode',
+        signature: node.getText(),
+      }
+    }
+    return this._referenceForSymbol(this._symbolForNode(node.typeName), node);
   }
 
-  _walkTypeAliasDeclaration(node:typescript.TypeAliasDeclaration):types.Node {
+  _walkTypeAliasDeclaration(node: typescript.TypeAliasDeclaration): types.Node {
     return this._addType(node, () => ({
       type: 'alias',
       target: this._walkNode(node.type),
     }));
   }
 
-  _walkEnumDeclaration(node:typescript.EnumDeclaration):types.Node {
+  _walkEnumDeclaration(node: typescript.EnumDeclaration): types.Node {
     return this._addType(node, () => {
       const values = node.members.map(m => {
         // If the user provides an initializer, use the value of the initializer
@@ -211,21 +271,21 @@ export default class Collector {
     });
   }
 
-  _walkTypeLiteralNode(node:typescript.TypeLiteralNode):types.Node {
+  _walkTypeLiteralNode(node: typescript.TypeLiteralNode): types.Node {
     return {
       type: 'literal object',
       members: node.members.map(this._walkNode),
     };
   }
 
-  _walkArrayTypeNode(node:typescript.ArrayTypeNode):types.Node {
+  _walkArrayTypeNode(node: typescript.ArrayTypeNode): types.Node {
     return {
       type: 'array',
       elements: [this._walkNode(node.elementType)],
     };
   }
 
-  _walkUnionTypeNode(node:typescript.UnionTypeNode):types.Node {
+  _walkUnionTypeNode(node: typescript.UnionTypeNode): types.Node {
     return {
       type: 'union',
       types: node.types.map(this._walkNode),
@@ -234,19 +294,19 @@ export default class Collector {
 
   // Type Walking
 
-  _walkType = (type:typescript.Type):types.Node => {
-    if (type.flags & TypeFlags.Object) {
-      return this._walkTypeReference(<typescript.TypeReference>type);
+  _walkType = (type: typescript.Type, node: typescript.TypeReferenceNode): types.Node => {
+    if ((type.flags & TypeFlags.Object)) {
+      return this._walkTypeReference(<typescript.TypeReference>type, node);
     } else if (type.flags & TypeFlags.BooleanLike) {
-      return this._walkInterfaceType(<typescript.InterfaceType>type);
+      return this._walkInterfaceType(<typescript.InterfaceType>type, node);
     } else if (type.flags & TypeFlags.Index) {
       return this._walkNode(type.getSymbol()!.declarations![0]);
     } else if (type.flags & TypeFlags.String) {
-      return {type: 'string'};
+      return { type: 'string' };
     } else if (type.flags & TypeFlags.Number) {
-      return {type: 'number'};
+      return { type: 'number' };
     } else if (type.flags & TypeFlags.Boolean) {
-      return {type: 'boolean'};
+      return { type: 'boolean' };
     } else {
       console.error(type);
       console.error(type.getSymbol()!.declarations![0].getSourceFile().fileName);
@@ -254,27 +314,27 @@ export default class Collector {
     }
   }
 
-  _walkTypeReference(type:typescript.TypeReference):types.Node {
+  _walkTypeReference(type: typescript.TypeReference, node: typescript.TypeReferenceNode): types.Node {
     if (type.target && type.target.getSymbol()!.name === 'Array') {
       return {
         type: 'array',
-        elements: type.typeArguments!.map(this._walkType),
+        elements: type.typeArguments!.map(type => this._walkType(type, node)),
       };
     } else {
       throw new Error('Non-array type references not yet implemented');
     }
   }
 
-  _walkInterfaceType(type:typescript.InterfaceType):types.Node {
-    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()!));
+  _walkInterfaceType(type: typescript.InterfaceType, node: typescript.TypeReferenceNode): types.Node {
+    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()!), node);
   }
 
   // Utility
 
   _addType(
-    node:typescript.InterfaceDeclaration|typescript.TypeAliasDeclaration|typescript.EnumDeclaration,
-    typeBuilder:() => types.Node,
-  ):types.Node {
+    node: typescript.InterfaceDeclaration | typescript.TypeAliasDeclaration | typescript.EnumDeclaration,
+    typeBuilder: () => types.Node,
+  ): types.Node {
     const name = this._nameForSymbol(this._symbolForNode(node.name));
     if (this.types[name]) return this.types[name];
     const type = typeBuilder();
@@ -283,11 +343,11 @@ export default class Collector {
     return type;
   }
 
-  _symbolForNode(node:typescript.Node):typescript.Symbol {
+  _symbolForNode(node: typescript.Node): typescript.Symbol {
     return this._expandSymbol(this.checker.getSymbolAtLocation(node)!);
   }
 
-  _nameForSymbol(symbol:typescript.Symbol):types.SymbolName {
+  _nameForSymbol(symbol: typescript.Symbol): types.SymbolName {
     symbol = this._expandSymbol(symbol);
     const parts = [];
     while (symbol) {
@@ -300,23 +360,33 @@ export default class Collector {
     return parts.join('.');
   }
 
-  _expandSymbol(symbol:typescript.Symbol):typescript.Symbol {
+  _expandSymbol(symbol: typescript.Symbol): typescript.Symbol {
     while (symbol.flags & typescript.SymbolFlags.Alias) {
       symbol = this.checker.getAliasedSymbol(symbol);
     }
     return symbol;
   }
 
-  _referenceForSymbol(symbol:typescript.Symbol):types.ReferenceNode {
-    this._walkSymbol(symbol);
+  _referenceForSymbol(symbol: typescript.Symbol, node: typescript.TypeReferenceNode): types.ReferenceNode {
+    this._walkSymbol(symbol); //getTypeReferenceName
     const referenced = this.types[this._nameForSymbol(symbol)];
     if (referenced && referenced.type === 'interface') {
       referenced.concrete = true;
+    }
+    const referenceNodes = [];
+    if (node.typeArguments) {
+      for (const typeArgument of node.typeArguments) {
+        if (typeArgument) {
+          const typeArg = <typescript.TypeReferenceNode>typeArgument;
+          referenceNodes.push(this._walkNode(typeArg))
+        }
+      }
     }
 
     return {
       type: 'reference',
       target: this._nameForSymbol(symbol),
+      referenceNodes,
     };
   }
 
