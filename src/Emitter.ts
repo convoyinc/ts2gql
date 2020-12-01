@@ -1,5 +1,4 @@
 import * as _ from 'lodash';
-import { inherits } from 'util';
 
 import * as Types from './types';
 import { ReferenceNode } from './types';
@@ -8,6 +7,14 @@ import { ReferenceNode } from './types';
 // https://raw.githubusercontent.com/sogko/graphql-shorthand-notation-cheat-sheet/master/graphql-shorthand-notation-cheat-sheet.png
 export default class Emitter {
   renames: { [key: string]: string } = {};
+  /**
+   * Each node that extends a generic is in this map.
+   * If you have interface Foo extends Bar<string, number>,
+   * and Bar is defined like Bar<T, U>
+   * this map will have an entry for Foo, extending Bar, with resolves
+   * for each of the generic types (T=string and U=number in this case)
+   */
+  private genericsMap = new Map<Types.InterfaceNode, Map<string, Types.ReferenceNode>>();
 
   constructor(private types: Types.TypeMap) {
     this.types = <Types.TypeMap>_.omitBy(types, (node, name) => this._preprocessNode(node, name!));
@@ -126,6 +133,7 @@ export default class Emitter {
       });
     }
 
+    const genericMap = this.genericsMap.get(node);
     const properties = _.map(members, (member) => {
       if (member.type === 'method') {
         let parameters = '';
@@ -143,7 +151,8 @@ export default class Emitter {
         return `${this._name(member.name)}${parameters}: ${returnType}${costDecorator}`;
       } else if (member.type === 'property') {
         const costDecorator = this._costHelper(member);
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}${costDecorator}`;
+        const referenceNode = genericMap && genericMap.get(member.name);
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature, referenceNode)}${costDecorator}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -177,7 +186,7 @@ export default class Emitter {
     return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
   }
 
-  _emitExpression = (node: Types.Node): string => {
+  _emitExpression = (node: Types.Node, possibleGenericReferenceNode?: Types.ReferenceNode): string => {
     if (!node) {
       return '';
     } else if (node.type === 'string') {
@@ -189,13 +198,18 @@ export default class Emitter {
     } else if (node.type === 'reference') {
       return this._name(node.target);
     } else if (node.type === 'array') {
-      return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
+      return `[${node.elements.map(e => this._emitExpression(e, possibleGenericReferenceNode)).join(' | ')}]`;
     } else if (node.type === 'literal object' || node.type === 'interface') {
       return _(this._collectMembers(node))
         .map((member: Types.PropertyNode) => {
-          return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+          return `${this._name(member.name)}: ${this._emitExpression(member.signature, possibleGenericReferenceNode)}`;
         })
         .join(', ');
+    } else if (node.type === 'genericPropertyNode') {
+      if (!possibleGenericReferenceNode) {
+        throw new Error(`node ${node.signature} was not resolved`);
+      }
+      return this._emitExpression(possibleGenericReferenceNode);
     } else {
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
@@ -220,7 +234,7 @@ export default class Emitter {
         if (interfaceNode.inherits.length > 1) {
           throw new Error(`No support for multiple inheritence: ${JSON.stringify(interfaceNode.inherits)}`);
         } else if (interfaceNode.inherits.length === 1) {
-          const supertype: Types.Node = this.types[interfaceNode.inherits[0]];
+          const supertype: Types.Node = this.types[interfaceNode.inherits[0].name];
           if (supertype.type !== 'interface') {
             throw new Error(`Expected supertype to be an interface node: ${supertype}`);
           }
@@ -258,7 +272,7 @@ export default class Emitter {
   _transitiveInterfaces(node: Types.InterfaceNode): Types.InterfaceNode[] {
     let interfaces = [node];
     for (const inherit of node.inherits) {
-      const inherited = { ...<Types.InterfaceNode>this.types[inherit.name] };
+      const inherited = <Types.InterfaceNode>this.types[inherit.name];
       if (inherited.typeParameters.length === inherit.referenceNodes.length) {
         // interface List<T> { item: T }
         // interface ComplexList<T> extends List<T> { item2: T }
@@ -271,15 +285,24 @@ export default class Emitter {
         // for each of the type parameters in the inherited clause
         // replace all the type values with the reference nodes
         // add that to the interfaces
-        inherited.typeParameters.forEach((t, index) => {
-
-          const referenceNode = inherit.referenceNodes[index];
-          inherited.members.filter(m => m.type === 'genericPropertyNode' && m.signature === t).forEach(m => {
-            m.type = 'property';
-            m.signature = { ...referenceNode };
+        if (!this.genericsMap.has(node)) {
+          const newGenericMapForNode = new Map();
+          this.genericsMap.set(node, newGenericMapForNode);
+          inherited.typeParameters.forEach((t, index) => {
+            const referenceNode = inherit.referenceNodes[index];
+            inherited.members
+              .forEach(m => {
+                if (m.type === 'property') {
+                  if (m.signature.type === 'genericPropertyNode' && m.signature.signature === t) {
+                    newGenericMapForNode.set(m.name, referenceNode)
+                  } else if ((m.signature.type === 'array' && m.signature.elements[0].type === 'genericPropertyNode' && m.signature.elements[0].signature === t)) {
+                    newGenericMapForNode.set(m.name, referenceNode)
+                  }
+                }
+              });
           });
-        })
-        console.log('foo');
+        }
+
       } else {
         // throw
       }

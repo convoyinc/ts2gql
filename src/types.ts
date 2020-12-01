@@ -85,6 +85,11 @@ export interface ExpressionWithTypeNode extends ComplexNode {
   referenceNodes: ReferenceNode[];
 }
 
+export interface GenericPropertyNode {
+  type: 'genericPropertyNode',
+  signature: string,
+}
+
 export type Node =
   InterfaceNode |
   MethodNode |
@@ -103,12 +108,6 @@ export type Node =
   ExpressionWithTypeNode |
   GenericPropertyNode;
 
-export type GenericPropertyNode = {
-  type: 'genericPropertyNode',
-  name: string,
-  signature: string,
-}
-
-export type NamedNode = MethodNode | PropertyNode | GenericPropertyNode;
+export type NamedNode = MethodNode | PropertyNode;
 
 export type TypeMap = {[key:string]:Node};

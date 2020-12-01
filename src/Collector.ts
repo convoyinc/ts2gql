@@ -173,15 +173,8 @@ export default class Collector {
               throw new Error(`Property cannot be generic for ${node.getText()}`);
             }
           }
-          if (typeParameters.find(t => t === (propertySignature.type && propertySignature.type!.getText()))) {
-            return {
-              type: 'genericPropertyNode',
-              name: propertySignature.name!.getText(),
-              signature: propertySignature.type!.getText(),
-            }
-          } else {
-            return this._walkNode(m);
-          }
+
+          return this._walkNode(m);
         }),
         inherits,
         typeParameters
@@ -216,6 +209,13 @@ export default class Collector {
   }
 
   _walkTypeReferenceNode(node: typescript.TypeReferenceNode): types.Node {
+    const symbol = this._symbolForNode(node.typeName);
+    if (symbol.flags === typescript.SymbolFlags.TypeParameter) {
+      return {
+        type: 'genericPropertyNode',
+        signature: node.getText(),
+      }
+    }
     return this._referenceForSymbol(this._symbolForNode(node.typeName), node);
   }
 
@@ -294,11 +294,11 @@ export default class Collector {
 
   // Type Walking
 
-  _walkType = (type: typescript.Type): types.Node => {
+  _walkType = (type: typescript.Type, node: typescript.TypeReferenceNode): types.Node => {
     if ((type.flags & TypeFlags.Object)) {
-      return this._walkTypeReference(<typescript.TypeReference>type);
+      return this._walkTypeReference(<typescript.TypeReference>type, node);
     } else if (type.flags & TypeFlags.BooleanLike) {
-      return this._walkInterfaceType(<typescript.InterfaceType>type);
+      return this._walkInterfaceType(<typescript.InterfaceType>type, node);
     } else if (type.flags & TypeFlags.Index) {
       return this._walkNode(type.getSymbol()!.declarations![0]);
     } else if (type.flags & TypeFlags.String) {
@@ -314,19 +314,19 @@ export default class Collector {
     }
   }
 
-  _walkTypeReference(type: typescript.TypeReference): types.Node {
+  _walkTypeReference(type: typescript.TypeReference, node: typescript.TypeReferenceNode): types.Node {
     if (type.target && type.target.getSymbol()!.name === 'Array') {
       return {
         type: 'array',
-        elements: type.typeArguments!.map(this._walkType),
+        elements: type.typeArguments!.map(type => this._walkType(type, node)),
       };
     } else {
       throw new Error('Non-array type references not yet implemented');
     }
   }
 
-  _walkInterfaceType(type: typescript.InterfaceType): types.Node {
-    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()!));
+  _walkInterfaceType(type: typescript.InterfaceType, node: typescript.TypeReferenceNode): types.Node {
+    return this._referenceForSymbol(this._expandSymbol(type.getSymbol()!), node);
   }
 
   // Utility
