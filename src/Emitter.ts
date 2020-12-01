@@ -295,8 +295,11 @@ export default class Emitter {
                 if (m.type === 'property') {
                   if (m.signature.type === 'genericPropertyNode' && m.signature.signature === t) {
                     newGenericMapForNode.set(m.name, referenceNode)
-                  } else if ((m.signature.type === 'array' && m.signature.elements[0].type === 'genericPropertyNode' && m.signature.elements[0].signature === t)) {
-                    newGenericMapForNode.set(m.name, referenceNode)
+                  } else if (m.signature.type === 'array') {
+                    const arrayType = m.signature.elements[0];
+                    if (arrayType.type === 'genericPropertyNode' && arrayType.signature === t) {
+                      newGenericMapForNode.set(m.name, referenceNode)
+                    }
                   }
                 }
               });

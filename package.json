@@ -16,6 +16,7 @@
   "scripts": {
     "clean": "./scripts/clean.sh",
     "compile": "./scripts/compile.sh",
+    "compile-watch": "./scripts/compile-watch.sh",
     "prepublish": "./scripts/prepublish.sh",
     "release": "./scripts/release.sh",
     "start": "./scripts/start.sh",
