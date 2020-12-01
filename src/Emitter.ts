@@ -274,17 +274,6 @@ export default class Emitter {
     for (const inherit of node.inherits) {
       const inherited = <Types.InterfaceNode>this.types[inherit.name];
       if (inherited.typeParameters.length === inherit.referenceNodes.length) {
-        // interface List<T> { item: T }
-        // interface ComplexList<T> extends List<T> { item2: T }
-
-        // interface SimpleStringList extends List<string> {}
-        // interface SimpleNumberList extends List<number> {}
-        // interface SimpleStringListList extends List<SimpleStringList> {}
-        // interface ComplexStringList extends ComplextList<string> {}
-
-        // for each of the type parameters in the inherited clause
-        // replace all the type values with the reference nodes
-        // add that to the interfaces
         if (!this.genericsMap.has(node)) {
           const newGenericMapForNode = new Map();
           this.genericsMap.set(node, newGenericMapForNode);
