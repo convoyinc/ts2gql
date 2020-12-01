@@ -11,7 +11,7 @@ export default class Emitter {
    * Each node that extends a generic is in this map.
    * If you have interface Foo extends Bar<string, number>,
    * and Bar is defined like Bar<T, U>
-   * this map will have an entry for Foo, extending Bar, with resolves
+   * this map will have an entry for Foo with a map with Bar with resolves
    * for each of the generic types (T=string and U=number in this case)
    */
   private genericsMap = new Map<Types.InterfaceNode, Map<string, Types.ReferenceNode>>();
