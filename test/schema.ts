@@ -71,7 +71,7 @@ export interface CostDecorationTypeWithKey {
   baz:number;
 }
 
-export interface NotNullableProperties {
+export interface NonNullableProperties {
   nullableString:string;
   /* @graphql non-nullable */
   nonNullString:string;
@@ -148,7 +148,7 @@ export interface QueryRoot {
   costDecorationType():CostDecorationType;
   costDecorationFieldWithKey():CostDecorationFieldWithKey;
   costDecorationTypeWithKey():CostDecorationTypeWithKey;
-  nonNullableProperties():NotNullableProperties;
+  nonNullableProperties():NonNullableProperties;
 }
 
 export interface MutationRoot {

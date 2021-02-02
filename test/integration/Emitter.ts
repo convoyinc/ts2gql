@@ -233,14 +233,14 @@ describe(`Emitter`, () => {
 
   it(`not-nullable types`, () => {
     const expected =
-`type NotNullableProperties {
-    nullableString: String
-    nonNullString: String!
+`type NonNullableProperties {
     nonNullArray: [String!]!
+    nonNullString: String!
+    nullableString: String
     someMethod: [foo: String!]!
 }`;
-    const node = loadedTypes['NotNullableProperties'] as types.InterfaceNode;
-    const val = emitter._emitInterface(node, 'NotNullableProperties');
+    const node = loadedTypes['NonNullableProperties'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'NonNullableProperties');
     expect(val).to.eq(expected);
   });
 });
