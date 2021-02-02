@@ -71,6 +71,16 @@ export interface CostDecorationTypeWithKey {
   baz:number;
 }
 
+export interface NotNullableProperties {
+  nullableString:string;
+  /* @graphql non-nullable */
+  nonNullString:string;
+  /* @graphql non-nullable */
+  nonNullArray:string[];
+  /* @graphql non-nullable */
+  someMethod(): { /* @graphql non-nullable */ foo: string}[];
+}
+
 export enum Color {
   'Red',
   'Yellow',
@@ -138,6 +148,7 @@ export interface QueryRoot {
   costDecorationType():CostDecorationType;
   costDecorationFieldWithKey():CostDecorationFieldWithKey;
   costDecorationTypeWithKey():CostDecorationTypeWithKey;
+  nonNullableProperties():NotNullableProperties;
 }
 
 export interface MutationRoot {

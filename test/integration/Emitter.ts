@@ -230,4 +230,17 @@ describe(`Emitter`, () => {
     const val = emitter._emitInterface(node, 'CostDecorationTypeWithKey');
     expect(val).to.eq(expected);
   });
+
+  it(`not-nullable types`, () => {
+    const expected =
+`type NotNullableProperties {
+    nullableString: String
+    nonNullString: String!
+    nonNullArray: [String!]!
+    someMethod: [foo: String!]!
+}`;
+    const node = loadedTypes['NotNullableProperties'] as types.InterfaceNode;
+    const val = emitter._emitInterface(node, 'NotNullableProperties');
+    expect(val).to.eq(expected);
+  });
 });

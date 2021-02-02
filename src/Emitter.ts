@@ -137,12 +137,14 @@ export default class Emitter {
           }
           parameters = `(${this._emitExpression(argType)})`;
         }
-        const returnType = this._emitExpression(member.returns);
+        const nonNullable = this._hasDocTag(member, 'non-nullable');
+        const returnType = this._emitExpression(member.returns, nonNullable);
         const costDecorator = this._costHelper(member);
         return `${this._name(member.name)}${parameters}: ${returnType}${costDecorator}`;
       } else if (member.type === 'property') {
         const costDecorator = this._costHelper(member);
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature)}${costDecorator}`;
+        const nonNullable = this._hasDocTag(member, 'non-nullable');
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable)}${costDecorator}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -176,25 +178,27 @@ export default class Emitter {
     return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
   }
 
-  _emitExpression = (node:Types.Node):string => {
+  _emitExpression = (node:Types.Node, nonNullable?:boolean):string => {
+    const suffix = nonNullable ? '!' : '';
     if (!node) {
       return '';
     } else if (node.type === 'string') {
-      return 'String'; // TODO: ID annotation
+      return `String${suffix}`; // TODO: ID annotation
     } else if (node.type === 'number') {
-      return 'Float'; // TODO: Int/Float annotation
+      return `Float${suffix}`; // TODO: Int/Float annotation
     } else if (node.type === 'boolean') {
-      return 'Boolean';
+      return `Boolean${suffix}`;
     } else if (node.type === 'reference') {
-      return this._name(node.target);
+      return `${this._name(node.target)}${suffix}`;
     } else if (node.type === 'array') {
-      return `[${node.elements.map(this._emitExpression).join(' | ')}]`;
+      return `[${node.elements.map(e => this._emitExpression(e, nonNullable)).join(' | ')}]${suffix}`;
     } else if (node.type === 'literal object' || node.type === 'interface') {
       return _(this._collectMembers(node))
         .map((member:Types.PropertyNode) => {
-          return `${this._name(member.name)}: ${this._emitExpression(member.signature)}`;
+          const nonNullable = this._hasDocTag(member, 'non-nullable');
+          return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable)}`;
         })
-        .join(', ');
+        .join(', ') + suffix;
     } else {
       throw new Error(`Can't serialize ${node.type} as an expression`);
     }
