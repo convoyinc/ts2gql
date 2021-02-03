@@ -78,7 +78,7 @@ export interface NonNullableProperties {
   /* @graphql non-nullable */
   nonNullArray:string[];
   /* @graphql non-nullable */
-  someMethod(): { /* @graphql non-nullable */ foo: string}[];
+  someMethod(): Starship;
 }
 
 export enum Color {
