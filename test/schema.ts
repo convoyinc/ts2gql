@@ -71,6 +71,17 @@ export interface CostDecorationTypeWithKey {
   baz:number;
 }
 
+/**
+ * @graphql key name
+ * @graphql extend
+ */
+export interface ExtendingExternalEntity {
+  /** @graphql external */
+  name:string;
+  /** @graphql requires(fields: "name") */
+  length:number;
+}
+
 export interface NonNullableProperties {
   nullableString:string;
   /* @graphql non-nullable */
@@ -143,6 +154,7 @@ export interface QueryRoot {
   starshipFederated():StarshipFederated;
   starshipFederatedCompound():StarshipFederatedCompoundKey;
   starshipFederatedMultiple():StarshipFederatedMultipleKeys;
+  extendingExternalEntity():ExtendingExternalEntity;
   costDecorationField():CostDecorationField;
   costDecorationMultipleFields():CostDecorationMultipleFields;
   costDecorationType():CostDecorationType;
