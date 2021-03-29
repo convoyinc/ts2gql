@@ -139,12 +139,12 @@ export default class Emitter {
         }
         const nonNullable = this._hasDocTag(member, 'non-nullable');
         const returnType = this._emitExpression(member.returns, nonNullable);
-        const costDecorator = this._costHelper(member);
-        return `${this._name(member.name)}${parameters}: ${returnType}${costDecorator}`;
+        const directives = this._buildDirectives(member);
+        return `${this._name(member.name)}${parameters}: ${returnType}${directives}`;
       } else if (member.type === 'property') {
-        const costDecorator = this._costHelper(member);
+        const directives = this._buildDirectives(member);
         const nonNullable = this._hasDocTag(member, 'non-nullable');
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable)}${costDecorator}`;
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable)}${directives}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -157,12 +157,9 @@ export default class Emitter {
     }
 
     if (node.concrete) {
-      // If tagged with a "key" graphql tag, add the @key annotation for federation
-      const federationDecorator = this._getDocTags(node, 'key')
-        .map(tag => ` @key(fields: "${tag.substring(4)}")`)
-        .join('');
-      const costDecorator = this._costHelper(node);
-      return `type ${this._name(name)}${federationDecorator}${costDecorator} {\n${this._indent(properties)}\n}`;
+      const directives = this._buildDirectives(node);
+      const extendKeyword = this._hasDocTag(node, 'extend') ? 'extend ' : '';
+      return `${extendKeyword}type ${this._name(name)}${directives} {\n${this._indent(properties)}\n}`;
     }
 
     let result = `interface ${this._name(name)} {\n${this._indent(properties)}\n}`;
@@ -291,11 +288,25 @@ export default class Emitter {
     return matchingTags;
   }
 
-  _costHelper(node:Types.ComplexNode) {
+  _buildDirectives(node:Types.ComplexNode) {
+    // @key (on types) - federation
+    let directives = this._getDocTags(node, 'key')
+      .map(tag => ` @key(fields: "${tag.substring(4)}")`)
+      .join('');
+    // @cost (on types or fields)
     const costExists = this._getDocTag(node, 'cost');
     if (costExists) {
-      return ` @cost${costExists.substring(5)}`;
+      directives = `${directives} @cost${costExists.substring(5)}`;
     }
-    return '';
+    // @external (on fields) - federation
+    if (this._hasDocTag(node, 'external')) {
+      directives = `${directives} @external`;
+    }
+    // @requires (on fields) - federation
+    const requires = this._getDocTag(node, 'requires');
+    if (requires) {
+      directives = `${directives} @${requires}`;
+    }
+    return directives;
   }
 }
