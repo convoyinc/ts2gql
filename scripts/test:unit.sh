@@ -41,4 +41,4 @@ npm run compile
 export JEST_SUITE_NAME="test:unit"
 export JEST_JUNIT_OUTPUT=./output/test:unit/report.xml
 
-node "${NODE_OPTIONS[@]}" ./node_modules/.bin/jest "${OPTIONS[@]}" "${FILES[@]}"
+exec node "${NODE_OPTIONS[@]}" ./node_modules/.bin/jest "${OPTIONS[@]}" "${FILES[@]}"
