@@ -138,13 +138,15 @@ export default class Emitter {
           parameters = `(${this._emitExpression(argType)})`;
         }
         const nonNullable = this._hasDocTag(member, 'non-nullable');
-        const returnType = this._emitExpression(member.returns, nonNullable);
+        const useInt = this._hasDocTag(member, 'use-int')
+        const returnType = this._emitExpression(member.returns, nonNullable, useInt);
         const directives = this._buildDirectives(member);
         return `${this._name(member.name)}${parameters}: ${returnType}${directives}`;
       } else if (member.type === 'property') {
         const directives = this._buildDirectives(member);
         const nonNullable = this._hasDocTag(member, 'non-nullable');
-        return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable)}${directives}`;
+        const useInt = this._hasDocTag(member, 'use-int');
+        return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable, useInt)}${directives}`;
       } else {
         throw new Error(`Can't serialize ${member.type} as a property of an interface`);
       }
@@ -175,14 +177,17 @@ export default class Emitter {
     return `enum ${this._name(name)} {\n${this._indent(node.values)}\n}`;
   }
 
-  _emitExpression = (node:Types.Node, nonNullable?:boolean):string => {
+  _emitExpression = (node:Types.Node, nonNullable?:boolean, useInt?:boolean):string => {
     const suffix = nonNullable ? '!' : '';
     if (!node) {
       return '';
     } else if (node.type === 'string') {
       return `String${suffix}`; // TODO: ID annotation
     } else if (node.type === 'number') {
-      return `Float${suffix}`; // TODO: Int/Float annotation
+      if(useInt) {
+        return `Int${suffix}`
+      }
+      return `Float${suffix}`;
     } else if (node.type === 'boolean') {
       return `Boolean${suffix}`;
     } else if (node.type === 'reference') {
@@ -193,7 +198,8 @@ export default class Emitter {
       return _(this._collectMembers(node))
         .map((member:Types.PropertyNode) => {
           const nonNullable = this._hasDocTag(member, 'non-nullable');
-          return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable)}`;
+          const useInt = this._hasDocTag(member, 'use-int')
+          return `${this._name(member.name)}: ${this._emitExpression(member.signature, nonNullable, useInt)}`;
         })
         .join(', ') + suffix;
     } else {
